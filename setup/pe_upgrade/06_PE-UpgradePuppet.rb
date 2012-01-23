@@ -1,52 +1,66 @@
-# PE upgrader test
-version  = config['pe_ver']
-upgrade_v = options[:upgrade]
+version  = TestConfig.puppet_enterprise_version
+test_name "Upgrae Puppet to #{version}"
 
-test_name "Upgrade #{upgrade_v} to #{version}"
 hosts.each do |host|
-  platform = host['platform']
 
-  # determine the distro tar name
-  dist_tar = "puppet-enterprise-#{version}-#{platform}.tar.gz"
-  unless File.file? "/opt/enterprise/dists/#{dist_tar}"
-    Log.error "PE #{dist_tar} not found, help!"
-    Log.error ""
-    Log.error "Make sure your configuration file uses the PE version string:"
-    Log.error "  eg: rhel-5-x86_64  centos-5-x86_64"
-    fail_test "Sorry, PE #{dist_tar} file not found."
+  package_name = nil
+  base_name = nil
+  if version =~ /^1\.[01]/
+    base_name = "puppet-enterprise-#{version}-#{host['os']}-#{host['arch']}"
+    package_name = base_name + '.tar'
+  else
+    if host['family'] == 'el'
+      base_name="puppet-enterprise-#{version}-#{host['family']}-#{host['arch']}"
+    else
+      base_name = "puppet-enterprise-#{version}-#{host['os']}-#{host['arch']}"
+    end
+    if version =~ /^1\.2/
+      package_name = base_name + '.tar'
+    else
+      package_name = base_name + '.tar.gz'
+    end
+  end
+
+  local_dir = "/opt/enterprise/dists/pe#{version}/"
+  remote_dir = "/tmp/"
+  local_file = local_dir + package_name
+  host['install_dir'] = remote_dir + base_name
+
+  unless File.file? local_file
+    Log.error "#{local_file} not found, help!"
+    fail_test "Sorry, #{local_file} not found."
   end
 
   step "Pre Test Setup -- SCP install package to hosts"
-  scp_to host, "/opt/enterprise/dists/#{dist_tar}", "/tmp"
+  scp_to host, local_file, remote_dir
+
   step "Pre Test Setup -- Untar install package on hosts"
-  on host,"cd /tmp && tar xf #{dist_tar}"
+  on host, "cd #{remote_dir} && tar xf #{package_name}"
+
 end
 
-# Upgrade Master first
+# Upgrade Master first -- allows for auto cert signing
 hosts.each do |host|
-  next if !( host['roles'].include? 'master' )
-  platform       = host['platform']
-  dist_dir       = "puppet-enterprise-#{version}-#{platform}"
+  next unless host.is_master?
 
-  step "SCP Master Answer file to dist tar dir"
-  scp_to host, "tmp/upgrade_a", "/tmp/#{dist_dir}"
+  step "SCP Master Answer file to #{host}"
+  scp_to host, "tmp/answers.#{host}.#{version}.upgrade", host['install_dir']
+
   step "Upgrade Puppet Master"
-  on host,"cd /tmp/#{dist_dir} && ./puppet-enterprise-upgrader -a upgrade_a"
+  on host, "cd #{host['install_dir']} && " +
+    "./puppet-enterprise-installer -a answers.#{host}.#{version}.upgrade"
+
 end
 
-# Install Puppet Agents
+# Upgrade Puppet Agents
 step "Install Puppet Agent"
 hosts.each do |host|
-  next if host['roles'].include? 'master'
-  role_agent=FALSE
-  role_dashboard=FALSE
-  role_agent=TRUE     if host['roles'].include? 'agent'
-  role_dashboard=TRUE if host['roles'].include? 'dashboard'
-  platform       = host['platform']
-  dist_dir       = "puppet-enterprise-#{version}-#{platform}"
+  next if host.is_master?
 
   step "SCP Answer file to dist tar dir"
-  scp_to host, "tmp/upgrade_a", "/tmp/#{dist_dir}"
-  step "Upgrade Puppet Agent"
-  on host,"cd /tmp/#{dist_dir} && ./puppet-enterprise-upgrader -a upgrade_a"
+  scp_to host, "answers/answers.#{host}.#{version}.upgrade", host['install_dir']
+
+  step "Install Puppet Agent"
+  on host, "cd #{host['install_dir']} && " +
+    "./puppet-enterprise-installer -a answers.#{host}.#{version}.upgrade"
 end

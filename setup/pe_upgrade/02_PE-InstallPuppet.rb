@@ -1,59 +1,103 @@
-# PE upgrader test
 version  = options[:upgrade]
 test_name "Install Puppet #{version}"
 hosts.each do |host|
   platform = host['platform']
 
-  # hack-o-rama: this is likely to be fragile and very PE 1.0, 1.1 specifc:
-  # Tarballs have changed name rhel- is now el- and affects package naming
-  # change el- to rhel- to match the old tarball naming/paths.
-  # It gets worse, of course, as Centos differs from RHEL as well
-  unless version =~ /^1\.2/
-    if platform =~ /el-(.*)/ and host.name.include? 'cent'
-      platform = "centos-#{$1}" 
-    elsif platform =~ /el-(.*)/ and host.name.include? 'rhel'
-      platform = "rhel-#{$1}" 
+  host['os'] = case host.name
+               when /cent/
+                 'cent'
+               when /rhel/
+                 'rhel'
+               when /debian/
+                 'debian'
+               when /ubuntu/
+                 'ubuntu'
+               when /sles/
+                 'sles'
+               when /sol/
+                 'solaris'
+               when /window/
+                 'windows'
+               end
+
+  host['family'] = case host['platform']
+                   when /debian|ubuntu/
+                     'debian'
+                   when /el/
+                     'el'
+                   when /sles/
+                     'sles'
+                   when /sol/
+                     'solaris'
+                   when /windows/
+                     'windows'
+                   end
+
+  host['arch'] = case host['platform']
+                 when /i386/
+                   'i386'
+                 when /amd64/
+                   'amd64'
+                 end
+
+  package_name = nil
+  base_name = nil
+  if version =~ /^1\.[01]/
+    base_name = "puppet-enterprise-#{version}-#{host['os']}-#{host['arch']}"
+    package_name = base_name + '.tar'
+  else
+    if host['family'] == 'el'
+      base_name="puppet-enterprise-#{version}-#{host['family']}-#{host['arch']}"
+    else
+      base_name = "puppet-enterprise-#{version}-#{host['os']}-#{host['arch']}"
+    end
+    if version =~ /^1\.2/
+      package_name = base_name + '.tar'
+    else
+      package_name = base_name + '.tar.gz'
     end
   end
-  host['dist'] = "puppet-enterprise-#{version}-#{platform}"
-  long_name = Dir.glob("/opt/enterprise/dists/pe#{version}/*")[0]
-  basename = File.basename(long_name)
-  ext = basename.match(/tar.*/).to_s
 
-  unless File.file? "/opt/enterprise/dists/pe#{version}/#{host['dist']}.#{ext}"
-    Log.error "PE #{host['dist']}.#{ext} not found, help!"
-    Log.error ""
-    Log.error "Make sure your configuration file uses the PE version string:"
-    Log.error "  eg: rhel-5-x86_64  centos-5-x86_64"
-    fail_test "Sorry, PE #{host['dist']}.#{ext} file not found."
+  local_dir = "/opt/enterprise/dists/pe#{version}/"
+  remote_dir = "/tmp/"
+  local_file = local_dir + package_name
+  host['install_dir'] = remote_dir + base_name
+
+  unless File.file? local_file
+    Log.error "#{local_file} not found, help!"
+    fail_test "Sorry, #{local_file} not found."
   end
 
   step "Pre Test Setup -- SCP install package to hosts"
-  scp_to host, "/opt/enterprise/dists/pe#{version}/#{host['dist']}.#{ext}", "/tmp"
+  scp_to host, local_file, remote_dir
+
   step "Pre Test Setup -- Untar install package on hosts"
-  on host,"cd /tmp && tar xf #{host['dist']}.#{ext}"
+  on host, "cd #{remote_dir} && tar xf #{package_name}"
+
 end
 
 # Install Master first -- allows for auto cert signing
 hosts.each do |host|
-  next if !( host['roles'].include? 'master' )
-  step "SCP Master Answer file to #{host} #{host['dist']}"
-  scp_to host, "tmp/answers.#{host}", "/tmp/#{host['dist']}"
+  next unless host.is_master?
+
+  step "SCP Master Answer file to #{host}"
+  scp_to host, "tmp/answers.#{host}.#{version}.install", host['install_dir']
+
   step "Install Puppet Master"
-  on host,"cd /tmp/#{host['dist']} && ./puppet-enterprise-installer -a answers.#{host}"
+  on host, "cd #{host['install_dir']} && " +
+    "./puppet-enterprise-installer -a answers.#{host}.#{version}.install"
+
 end
 
 # Install Puppet Agents
 step "Install Puppet Agent"
 hosts.each do |host|
-  next if host['roles'].include? 'master'
-  role_agent=FALSE
-  role_dashboard=FALSE
-  role_agent=TRUE     if host['roles'].include? 'agent'
-  role_dashboard=TRUE if host['roles'].include? 'dashboard'
+  next if host.is_master?
 
   step "SCP Answer file to dist tar dir"
-  scp_to host, "tmp/answers.#{host}", "/tmp/#{host['dist']}"
+  scp_to host, "answers/answers.#{host}.#{version}.install", host['install_dir']
+
   step "Install Puppet Agent"
-  on host,"cd /tmp/#{host['dist']} && ./puppet-enterprise-installer -a answers.#{host}"
+  on host, "cd #{host['install_dir']} && " +
+    "./puppet-enterprise-installer -a answers.#{host}.#{version}.install"
 end
