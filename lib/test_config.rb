@@ -1,4 +1,3 @@
-# Config was taken by Ruby.
 module TestConfig
 
   def self.ssh_defaults
@@ -16,21 +15,40 @@ module TestConfig
 
   def self.load_file(config_file)
     config = YAML.load_file(config_file)
-    # Merge some useful date into the config hash
-    config['CONFIG']['consoleport'] = 3000 unless config['CONFIG']['consoleport']  
+
+    config['CONFIG']['consoleport'] = 3000 unless
+      config['CONFIG']['consoleport']
+
     config['CONFIG']['ssh'] = ssh_defaults.merge(config['CONFIG']['ssh'] || {})
-    config['CONFIG']['pe_ver'] = puppet_enterprise_version if puppet_enterprise_version 
-    config['CONFIG']['puppet_ver'] = Options.parse_args[:puppet] unless puppet_enterprise_version
-    config['CONFIG']['facter_ver'] = Options.parse_args[:facter] unless puppet_enterprise_version
-    # need to load expect versions of PE binaries 
-    config['VERSION'] = YAML.load_file('ci/pe/pe_version') rescue nil if puppet_enterprise_version
+
+    config['CONFIG']['pe_ver'] = puppet_enterprise_version if
+      puppet_enterprise_version
+
+    config['CONFIG']['puppet_ver'] = Options.parse_args[:puppet] unless
+      puppet_enterprise_version
+
+    config['CONFIG']['facter_ver'] = Options.parse_args[:facter] unless
+      puppet_enterprise_version
+
+    config['VERSION'] = YAML.load_file('ci/pe/pe_version') rescue nil if
+      puppet_enterprise_version
+
     config
   end
 
+  # This method returns nil unless the options type is /pe/
+  # Consequently this ends up being used in various places to
+  # find out what type of test is happening instead of finding out
+  # what version it is. This behavior should be moved to a is_pe? like
+  # method and dependent code refactored to use the new method.
   def self.puppet_enterprise_version
     return unless Options.parse_args[:type] =~ /pe/
     return Options.parse_args[:pe_version] if Options.parse_args[:pe_version]
-    version=""
+    @pe_version ||= load_pe_version
+  end
+
+  def self.load_pe_version
+    version = ''
     begin
       File.open("/opt/enterprise/dists/LATEST") do |file|
         while line = file.gets
@@ -43,7 +61,7 @@ module TestConfig
     rescue
       version = 'unknown'
     end
-    return version
+    version
   end
 
   # Print out test configuration
