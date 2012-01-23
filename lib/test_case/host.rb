@@ -1,5 +1,7 @@
 class TestCase
   class Host
+    attr_reader :name, :overrides
+
     def self.create(name, overrides, defaults)
       case overrides['platform']
       when /windows/;
@@ -13,23 +15,42 @@ class TestCase
     def initialize(name, overrides, defaults)
       @name,@overrides,@defaults = name,overrides,defaults
     end
+
     def []=(k,v)
       @overrides[k] = v
     end
+
     def [](k)
       @overrides.has_key?(k) ? @overrides[k] : @defaults[k]
     end
+
     def to_str
       @name
     end
+
     def to_s
       @name
     end
+
     def +(other)
       @name+other
     end
 
-    attr_reader :name, :overrides
+    def is_database?
+      @is_database ||= self['roles'].include? 'database'
+    end
+
+    def is_master?
+      @is_master ||= self['roles'].include? 'master'
+    end
+
+    def is_cloud?
+      @is_cloud ||= self['roles'].include? 'cloud_pro'
+    end
+
+    def is_dashboard?
+      @is_dashboard || self['roles'].include? 'database'
+    end
 
     # Wrap up the SSH connection process; this will cache the connection and
     # allow us to reuse it for each operation without needing to reauth every
@@ -77,10 +98,20 @@ class TestCase
           end
 
           channel.exec(command) do |terminal, success|
-            abort "FAILED: to execute command on a new channel on #{@name}" unless success
-            terminal.on_data                   { |ch, data|       result.stdout << data }
-            terminal.on_extended_data          { |ch, type, data| result.stderr << data if type == 1 }
-            terminal.on_request("exit-status") { |ch, data|       result.exit_code = data.read_long  }
+            msg = "FAILED: to execute command on a new channel on #{@name}"
+            abort msg unless success
+
+            terminal.on_data do |ch, data|
+              result.stdout << data
+            end
+
+            terminal.on_extended_data do |ch, type, data|
+              result.stderr << data if type == 1
+            end
+
+            terminal.on_request("exit-status") do |ch, data|
+              result.exit_code = data.read_long
+            end
 
             # queue stdin data, force it to packets, and signal eof: this
             # triggers action in many remote commands, notably including
