@@ -52,26 +52,36 @@ class TestCase
     end
     hash
   end
+
   #
   # Identify hosts
   #
   def hosts(desired_role=nil)
     @hosts.select { |host| desired_role.nil? or host['roles'].include?(desired_role) }
   end
+
   def agents
     hosts 'agent'
   end
+
   def master
     masters = hosts 'master'
     fail "There must be exactly one master" unless masters.length == 1
     masters.first
   end
+
   def dashboard
     dashboards = hosts 'dashboard'
     Log.warn "There is no dashboard host configured" if dashboards.empty?
     fail "Cannot have more than one dashboard host" if dashboards.length > 1
     dashboards.first
   end
+
+  def database
+    databases = hosts 'database'
+    database.first
+  end
+
   #
   # Annotations
   #
