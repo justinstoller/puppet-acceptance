@@ -36,21 +36,21 @@ class TestCase
       @name+other
     end
 
-    def is_database?
-      @is_database ||= self['roles'].include? 'database'
-    end
+   # def is_database?
+   #   @is_database ||= self['roles'].include? 'database'
+   # end
 
-    def is_master?
-      @is_master ||= self['roles'].include? 'master'
-    end
+   # def is_master?
+   #   @is_master ||= self['roles'].include? 'master'
+   # end
 
-    def is_cloud?
-      @is_cloud ||= self['roles'].include? 'cloud_pro'
-    end
+   # def is_cloud?
+   #   @is_cloud ||= self['roles'].include? 'cloud_pro'
+   # end
 
-    def is_dashboard?
-      @is_dashboard || self['roles'].include? 'database'
-    end
+   # def is_dashboard?
+   #   @is_dashboard || self['roles'].include? 'database'
+   # end
 
     # Wrap up the SSH connection process; this will cache the connection and
     # allow us to reuse it for each operation without needing to reauth every
