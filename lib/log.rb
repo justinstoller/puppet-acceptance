@@ -43,7 +43,7 @@ class Log
       return unless @log_level == :debug
       write do |to|
         to.print GREY if color
-        to.puts *args
+        to.puts args
         to.print NORMAL if color
       end
     end
@@ -52,7 +52,7 @@ class Log
       return unless @log_level == :debug
       write do |to|
         print YELLOW if color
-        to.puts *args.map {|msg| "Warning: #{msg}"}
+        to.puts args.map {|msg| "Warning: #{msg}"}
         print NORMAL if color
       end
     end
@@ -60,21 +60,21 @@ class Log
     def success(*args)
       write do |to|
         print GREEN if color
-        to.puts *args.map {|msg| msg}
+        to.puts args.map {|msg| msg}
         print NORMAL if color
       end
     end
 
     def notify(*args)
       write do |to|
-        to.puts *args
+        to.puts args
       end
     end
 
     def error(*args)
       write do |to|
         print BRIGHT_RED if color
-        to.puts *args.map {|msg| "Error: #{msg}"}
+        to.puts args.map {|msg| "Error: #{msg}"}
         print NORMAL if color
       end
     end
