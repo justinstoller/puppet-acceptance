@@ -69,12 +69,28 @@ class TestCase
   #
   # Basic operations
   #
+  def hosts
+    @network
+  end
+
+  def master
+    @network.master
+  end
+
+  def dashboard
+    @network.dashboard
+  end
+
+  def agents
+    @network.agents
+  end
+
   def on(host, command, options={}, &block)
-    @network.on host, command, options, block
+    @network.on host, command, options, &block
   end
 
   def scp_to(host,from_path,to_path,options={})
-    @network.on host, command, options, block
+    @network.on host, command, options, &block
   end
 
   def pass_test(msg)

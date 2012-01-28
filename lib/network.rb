@@ -79,7 +79,7 @@ class Network
 
       unless options[:silent]
         result.log
-        unless options[:acceptable_exit_codes].include?(exit_code)
+        unless options[:acceptable_exit_codes].include?(result.exit_code)
           Log.debug "Exit code is: #{result.exit_code}"
           fail "Host #{host} exited with #{result.exit_code}" +
                  " running: #{command.cmd_line('')}"
