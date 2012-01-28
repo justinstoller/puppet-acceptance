@@ -75,21 +75,21 @@ class Network
       options[:failing_exit_codes]    ||= [1]
 
       command = Command.new(command) if command.is_a? String
-      @result = command.exec(host, options)
+      result = command.exec(host, options)
 
       unless options[:silent]
-        @result.log
+        result.log
         unless options[:acceptable_exit_codes].include?(exit_code)
-          Log.debug "Exit code is: #{exit_code}"
-          fail "Host '#{host} exited with #{exit_code}" +
+          Log.debug "Exit code is: #{result.exit_code}"
+          fail "Host #{host} exited with #{result.exit_code}" +
                  " running: #{command.cmd_line('')}"
         end
       end
 
       # Also, let additional checking be performed by the caller.
-      yield if block_given?
+      yield result.stdout, result.stderr, result.exit_code if block_given?
 
-      return @result
+      return result
     end
   end
 
@@ -97,9 +97,9 @@ class Network
     if host.is_a? Array
       host.each { |h| scp_to h,from_path,to_path,options }
     else
-      @result = host.do_scp(from_path, to_path)
-      @result.log
-      raise "scp exited with #{@result.exit_code}" if @result.exit_code != 0
+      result = host.do_scp(from_path, to_path)
+      result.log
+      raise "scp exited with #{result.exit_code}" if result.exit_code != 0
     end
   end
 
@@ -203,23 +203,5 @@ class Network
 
       scp_to hosts, tempfile.path, file_path
     end
-  end
-
-  #
-  # result access
-  #
-  def stdout
-    return nil if @result.nil?
-    @result.stdout
-  end
-
-  def stderr
-    return nil if @result.nil?
-    @result.stderr
-  end
-
-  def exit_code
-    return nil if @result.nil?
-    @result.exit_code
   end
 end
