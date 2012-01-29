@@ -89,8 +89,8 @@ class TestCase
     @network.on host, command, options, &block
   end
 
-  def scp_to(host,from_path,to_path,options={})
-    @network.on host, command, options, &block
+  def scp_to(host, from_path, to_path, options={})
+    @network.scp_to host, from_path, to_path, options
   end
 
   def pass_test(msg)
@@ -149,28 +149,24 @@ class TestCase
     PuppetCommand.new(:filebucket,*args)
   end
 
-  def host_command(command_string)
-    HostCommand.new(command_string)
-  end
-
   def apply_manifest_on(host, manifest, options={}, &block)
-    @network.apply_manifest_on host, manifest, options, block
+    @network.apply_manifest_on host, manifest, options, &block
   end
 
   def run_script_on(host, script, &block)
-    @network.run_script_on host, script, block
+    @network.run_script_on host, script, &block
   end
 
   def run_agent_on(host, arg='--no-daemonize --verbose --onetime --test', options={}, &block)
-    @network.run_agents_on host, arg, options, options, block
+    @network.run_agents_on host, arg, options, options, &block
   end
 
   def run_cron_on(host, action, user, entry="", &block)
-    @network.run_cron_on host action, user, entry, block
+    @network.run_cron_on host, action, user, entry, &block
   end
 
   def with_master_running_on(host, arg='--daemonize', &block)
-    @network.with_master_running_on host, arg, block
+    @network.with_master_running_on host, arg, &block
   end
 
   def poll_master_until(host, verb)
