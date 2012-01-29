@@ -72,7 +72,7 @@ class Network
   end
 
   def on(host, command, options={}, &block)
-    if host.is_a? Network
+    if host.is_a? Network or host.kind_of? Array
       host.map { |h| on h, command, options, &block }
     else
       options[:acceptable_exit_codes] ||= [0]
@@ -97,9 +97,9 @@ class Network
     end
   end
 
-  def scp_to(host,from_path,to_path,options={})
-    if host.is_a? Array
-      host.each { |h| scp_to h,from_path,to_path,options }
+  def scp_to(host, from_path, to_path, options={})
+    if host.is_a? Network or host.kind_of? Array
+      host.each { |h| scp_to h, from_path, to_path, options }
     else
       result = host.do_scp(from_path, to_path)
       result.log
