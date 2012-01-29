@@ -14,7 +14,7 @@ unless options[:notimesync]
       until success do
         count+=1
         skip_test "ntp time sync failed after #{count} tries" and break if count > 3
-        on(host, "ntpdate -t 20 #{options[:ntpserver]}") do
+        on(host, "ntpdate -t 20 #{options[:ntpserver]}") do |stdout, stderr, exit_code|
           success=TRUE if exit_code == 0
         end
       end

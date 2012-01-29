@@ -30,7 +30,7 @@ def clone_repo(host, package, repo, revision)
 
   step "grab git repo version"
   version = {}
-  on host, "cd /opt/puppet-git-repos/#{package} && git describe" do
+  on host, "cd /opt/puppet-git-repos/#{package} && git describe" do |stdout, stderr, exit_code|
     version = stdout.chomp
   end
   config[:version] = version

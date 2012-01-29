@@ -72,7 +72,7 @@ hosts.each do |host|
   step "grab git repo versions"
   version = {}
   [:puppet, :facter].each do |package|
-    on host, "cd /opt/puppet-git-repos/#{package} && git describe" do
+    on host, "cd /opt/puppet-git-repos/#{package} && git describe" do |stdout, stderr, exit_code|
       version[package] = stdout.chomp
     end
   end

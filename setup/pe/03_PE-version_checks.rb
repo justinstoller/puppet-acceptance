@@ -2,7 +2,7 @@ test_name "Verify correct versions of installed PE code"
 
 step "Check for presence of pe_version file"
 hosts.each do |host|
-  on(host, "test -f /opt/puppet/pe_version") do
+  on(host, "test -f /opt/puppet/pe_version") do |stdout, stderr, exit_code|
     assert_equal(0, exit_code)
   end
 end
@@ -10,28 +10,28 @@ end
 step "Check Puppet Module version"
 hosts.each do |host|
   next if host['platform'].include?('solaris')
-  on(host, "#{host['puppetbindir']}/puppet-module version") do
+  on(host, "#{host['puppetbindir']}/puppet-module version") do |stdout, stderr, exit_code|
     assert_match(/#{version['VERSION']['puppet_module_ver']}/, stdout, "Incorrect Puppet Module tool version detected on #{host} ")
   end
 end
 
 step "Check Ruby Gem version"
 hosts.each do |host|
-  on(host, "#{host['puppetbindir']}/gem --version") do
+  on(host, "#{host['puppetbindir']}/gem --version") do |stdout, stderr, exit_code|
     assert_match(/#{version['VERSION']['gem_ver']}/, stdout, "Incorrect gem version detected on #{host} ")
   end
 end
 
 step "Check Facter version"
 hosts.each do |host|
-  on(host, "#{host['puppetbindir']}/facter --version") do
+  on(host, "#{host['puppetbindir']}/facter --version") do |stdout, stderr, exit_code|
     assert_match(/#{version['VERSION']['facter_ver']}/, stdout.chomp, "Incorrect Facter version detected on #{host}")
   end
 end
 
 step "Check Puppet version"
 hosts.each do |host|
-  on(host, "#{host['puppetbindir']}/puppet --version") do
+  on(host, "#{host['puppetbindir']}/puppet --version") do |stdout, stderr, exit_code|
     assert_match(/#{version['VERSION']['puppet_ver']}/, stdout, "Incorrect Puppet version detected on #{host}")
   end
 end
@@ -41,11 +41,11 @@ hosts.each do |host|
   next if host['roles'].include? 'agent'
 
   if host['platform'] =~ /debian|ubuntu/
-    on(host, 'dpkg -l pe-rack') do
+    on(host, 'dpkg -l pe-rack') do |stdout, stderr, exit_code|
       assert_match(/#{version['VERSION']['rack_ver']}/, stdout, "Incorrect Rack version detected on #{host}")
     end
   else
-    on(host, 'rpm -q pe-rubygem-rack') do
+    on(host, 'rpm -q pe-rubygem-rack') do |stdout, stderr, exit_code|
       assert_match(/#{version['VERSION']['rack_ver']}/, stdout, "Incorrect Rack version detected on #{host}")
     end
   end
@@ -63,7 +63,7 @@ hosts.each do |host|
     cmd = 'rpm -q pe-ruby-augeas'
   end
 
-  on(host, cmd) do
+  on(host, cmd) do |stdout, stderr, exit_code|
     assert_match(/#{version['VERSION']['ruby_augeas_ver']}/, stdout, "Incorrect Ruby Augeas Bindings version detected on #{host}")
   end
 end
@@ -81,7 +81,7 @@ end
       cmd = "rpm -q pe-rubygem-#{pkg}"
     end
 
-    on(host, cmd) do
+    on(host, cmd) do |stdout, stderr, exit_code|
       assert_match(/#{version['VERSION']["#{pkg}_ver"]}/, stdout, "Incorrect #{pkg} version detected on #{host}")
     end
   end
@@ -98,7 +98,7 @@ hosts.each do |host|
     cmd = "rpm -q"
   end
 
-  on host, "#{cmd} pe-puppet-dashboard" do
+  on host, "#{cmd} pe-puppet-dashboard" do |stdout, stderr, exit_code|
     assert_match(/#{version['VERSION']['dashboard_ver']}/, stdout,
                  "Incorrect version of dashboard on #{host}")
   end
