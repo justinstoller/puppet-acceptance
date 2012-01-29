@@ -1,5 +1,6 @@
 class TestCase
   class Host
+    require 'net/ssh'
     attr_reader :name, :overrides
 
     def self.create(name, overrides, defaults)
@@ -13,7 +14,7 @@ class TestCase
 
     # A cache for active SSH connections to our execution nodes.
     def initialize(name, overrides, defaults)
-      @name,@overrides,@defaults = name,overrides,defaults
+      @name, @overrides, @defaults = name, overrides, defaults
     end
 
     def []=(k,v)
@@ -33,24 +34,8 @@ class TestCase
     end
 
     def +(other)
-      @name+other
+      @name + other
     end
-
-   # def is_database?
-   #   @is_database ||= self['roles'].include? 'database'
-   # end
-
-   # def is_master?
-   #   @is_master ||= self['roles'].include? 'master'
-   # end
-
-   # def is_cloud?
-   #   @is_cloud ||= self['roles'].include? 'cloud_pro'
-   # end
-
-   # def is_dashboard?
-   #   @is_dashboard || self['roles'].include? 'database'
-   # end
 
     # Wrap up the SSH connection process; this will cache the connection and
     # allow us to reuse it for each operation without needing to reauth every
@@ -60,31 +45,30 @@ class TestCase
       @ssh ||= begin
                  Net::SSH.start(self, self['user'] || "root", self['ssh'])
                rescue
-                 tries += 1
                  if tries < 4
-                   puts "Try #{tries} -- Host Unreachable"
-                   puts 'Trying again in 20 seconds'
+                   Log.warn "Error was class #{$!}"
+                   Log.warn "Try #{tries} -- Assuming Host Will Be Up Within A Minute"
+                   Log.warn 'Trying again in 20 seconds'
                    sleep 20
+                   tries += 1
                    retry
                  end
                end
     end
 
     def close
-      if @ssh
-        @ssh.close
-      end
+      @ssh && @ssh.close
     end
 
     def do_action(verb,*args)
-      result = Result.new(self,args,'','',0)
+      result = Result.new(self, args, '', '', 0)
       Log.debug "#{self}: #{verb}(#{args.inspect})"
       yield result unless $dry_run
       result
     end
 
     def exec(command, options)
-      do_action('RemoteExec',command) do |result|
+      do_action('RemoteExec', command) do |result|
         ssh.open_channel do |channel|
           if options[:pty] then
             channel.request_pty do |ch, success|
@@ -129,14 +113,14 @@ class TestCase
     end
 
     def do_scp(source, target)
-      do_action("ScpFile",source,target) { |result|
+      do_action("ScpFile", source, target) { |result|
         # Net::Scp always returns 0, so just set the return code to 0 Setting
         # these values allows reporting via result.log(test_name)
         result.stdout = "SCP'ed file #{source} to #{@host}:#{target}"
-        result.stderr=nil
-        result.exit_code=0
-        recursive_scp='false'
-        recursive_scp='true' if File.directory? source
+        result.stderr = nil
+        result.exit_code = 0
+        recursive_scp = 'false'
+        recursive_scp = 'true' if File.directory? source
         ssh.scp.upload!(source, target, :recursive => recursive_scp)
       }
     end
