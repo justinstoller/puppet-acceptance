@@ -143,7 +143,7 @@ class TestCase
     def initialize(name, overrides, defaults)
       super(name, overrides, defaults)
 
-      @defaults = defaults.merge(TestConfig.puppet_enterprise_version ? PE_DEFAULTS : DEFAULTS)
+      @defaults = defaults.merge(TestConfig.is_pe? ? PE_DEFAULTS : DEFAULTS)
     end
   end
 

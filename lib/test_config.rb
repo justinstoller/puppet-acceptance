@@ -36,15 +36,12 @@ module TestConfig
     config
   end
 
-  # This method returns nil unless the options type is /pe/
-  # Consequently this ends up being used in various places to
-  # find out what type of test is happening instead of finding out
-  # what version it is. This behavior should be moved to a is_pe? like
-  # method and dependent code refactored to use the new method.
+  def self.is_pe?
+    Options.parse_args[:type] =~ /pe/ ? true : false
+  end
+
   def self.puppet_enterprise_version
-    return unless Options.parse_args[:type] =~ /pe/
-    return Options.parse_args[:pe_version] if Options.parse_args[:pe_version]
-    @pe_version ||= load_pe_version
+    @pe_version ||= Options.parse_args[:pe_version] || load_pe_version if is_pe?
   end
 
   def self.load_pe_version
