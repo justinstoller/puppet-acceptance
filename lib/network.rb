@@ -1,6 +1,7 @@
 class Network
   require 'tempfile'
   require 'lib/test_case/host'
+  require 'lib/command'
   include Enumerable
 
   def initialize(config)
@@ -66,7 +67,10 @@ class Network
   #
   # Basic operations
   #
-  attr_reader :result
+  def host_command(command_string)
+    HostCommand.new(command_string)
+  end
+
   def on(host, command, options={}, &block)
     if host.is_a? Network
       host.map { |h| on h, command, options, &block }
@@ -103,12 +107,12 @@ class Network
     end
   end
 
-  def apply_manifest_on(host,manifest,options={},&block)
+  def apply_manifest_on(hosts, manifest, options={}, &block)
     on_options = {:stdin => manifest + "\n"}
     on_options[:acceptable_exit_codes] = options[:acceptable_exit_codes]
     args = ["--verbose"]
     args << "--parseonly" if options[:parseonly]
-    on host, puppet_apply(*args), on_options, &block
+    on hosts, PuppetCommand.new(:apply, *args), on_options, &block
   end
 
   def run_script_on(host, script, &block)
@@ -121,7 +125,7 @@ class Network
     if host.is_a? Array
       host.each { |h| run_agent_on h, arg, options, &block }
     else
-      on host, puppet_agent(arg), options, &block
+      on host, PuppetCommand.new(:agent, arg), options, &block
     end
   end
 
@@ -158,9 +162,9 @@ class Network
       end
     end
 
-    on host, puppet_master('--configprint pidfile')
+    on host, PuppetCommand.new(:master, '--configprint pidfile')
     pidfile = stdout.chomp
-    on host, puppet_master(arg)
+    on host, PuppetCommand.new(:master, arg)
     poll_master_until(host, :start)
     master_started = true
     yield if block
