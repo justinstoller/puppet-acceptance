@@ -14,7 +14,7 @@ def get_cmd(host)
 end
 
 hosts.each do |host|
-  on(host, get_cmd(host)) do
+  on(host, get_cmd(host)) do |stdout, stderr, exit_code|
    host[:ruby_ver] = stdout
   end
 end
