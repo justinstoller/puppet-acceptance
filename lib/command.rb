@@ -5,21 +5,25 @@ class Command
     @command_string = command_string
   end
 
-  # host_info is a hash-like object that can be queried to figure out
-  # properties of the host.
-  def cmd_line(host_info)
+  def cmd_line(host)
     @command_string
   end
 
-  def exec(host, options={})
-    host.exec(cmd_line(host), options)
-  end
+  def puppet_env_command(host)
+    rubylib = [
+      host['pluginlibpath'],
+      host['puppetlibdir'],
+      host['facterlibdir'],
+      '$RUBYLIB'
+    ].compact.join(':')
 
-  # Determine the appropriate puppet env command for the given host.
-  def puppet_env_command(host_info)
-    rubylib = [host_info['pluginlibpath'], host_info['puppetlibdir'], host_info['facterlibdir'],'$RUBYLIB'].compact.join(':')
-    path    = [host_info['puppetbindir'], host_info['facterbindir'],'$PATH'   ].compact.join(':')
-    cmd     = host_info['platform'] =~ /windows/ ? 'cmd.exe /c' : ''
+    path    = [
+      host['puppetbindir'],
+      host['facterbindir'],
+      '$PATH'
+    ].compact.join(':')
+
+    cmd     = host['platform'] =~ /windows/ ? 'cmd.exe /c' : ''
 
     %Q{env RUBYLIB="#{rubylib}" PATH="#{path}" #{cmd}}
   end
@@ -28,19 +32,16 @@ end
 class PuppetCommand < Command
   def initialize(sub_command, *args)
     @sub_command = sub_command
-    @options = args.last.is_a?(Hash) ? args.pop : {}
-    # Dom: commenting these lines addressed bug #6920
-    # @options[:vardir] ||= '/tmp'
-    # @options[:confdir] ||= '/tmp'
-    # @options[:ssldir] ||= '/tmp'
+    options = args.last.is_a?(Hash) ? args.pop : {}
+    @options = options.map { |key, value| "--#{key}=#{value}" }
     @args = args
   end
 
-  def cmd_line(host_info)
-    puppet_path = host_info[:puppetbinpath] || "/bin/puppet" # TODO: is this right?
+  def cmd_line(host)
+    puppet_path = host[:puppetbinpath] || "/bin/puppet" # TODO: is this right?
 
-    args_string = (@args + @options.map { |key, value| "--#{key}=#{value}" }).join(' ')
-    "#{puppet_env_command(host_info)} puppet #{@sub_command} #{args_string}"
+    args_string = (@args + @options).join(' ')
+    "#{puppet_env_command(host)} puppet #{@sub_command} #{args_string}"
   end
 end
 
@@ -49,9 +50,9 @@ class FacterCommand < Command
     @args = args
   end
 
-  def cmd_line(host_info)
+  def cmd_line(host)
     args_string = @args.join(' ')
-    "#{puppet_env_command(host_info)} facter #{args_string}"
+    "#{puppet_env_command(host)} facter #{args_string}"
   end
 end
 

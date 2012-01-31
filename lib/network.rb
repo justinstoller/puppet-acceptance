@@ -1,7 +1,6 @@
 class Network
-  require 'lib/test_case/host'
-  require 'lib/network_helpers'
-  require 'lib/command'
+  require_relative 'test_case/host'
+  require_relative 'network_helpers'
   include Enumerable
   include NetworkHelpers
 
@@ -21,5 +20,4 @@ class Network
   def hosts(role = nil)
     @hosts.select { |host| role.nil? or host['roles'].include?(role) }
   end
-
 end

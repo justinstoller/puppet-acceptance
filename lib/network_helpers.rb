@@ -1,6 +1,7 @@
-
 module NetworkHelpers
   require 'tempfile'
+  require_relative 'log'
+  require_relative 'command'
 
   #
   # Identify hosts
@@ -27,24 +28,6 @@ module NetworkHelpers
     database.first
   end
 
- # @hosts.each do |host|
- #   def host.is_database?
- #     @is_database ||= host['roles'].include? 'database'
- #   end
-
- #   def host.is_master?
- #     @is_master ||= host['roles'].include? 'master'
- #   end
-
- #   def host.is_cloud?
- #     @is_cloud ||= host['roles'].include? 'cloud_pro'
- #   end
-
- #   def host.is_dashboard?
- #     @is_dashboard ||= host['roles'].include? 'database'
- #   end
- # end
-
   #
   # Basic operations
   #
@@ -53,14 +36,21 @@ module NetworkHelpers
   end
 
   def on(host, command, options={}, &block)
-    if host.is_a? Network or host.kind_of? Array
-      host.map { |h| on h, command, options, &block }
+    if host.respond_to? :each
+      threads = []
+      host.each do |node|
+        new_block = block_given? ? block.dup : Proc.new {|a,b,c| }
+        threads << Thread.new(node, command, options) do |n,m,o|
+          on n, m, o, &new_block
+        end
+      end
+      threads.each {|t| t.join }
     else
       options[:acceptable_exit_codes] ||= [0]
       options[:failing_exit_codes]    ||= [1]
 
       command = Command.new(command) if command.is_a? String
-      result = command.exec(host, options)
+      result = host.exec(command.cmd_line(host), options)
 
       unless options[:silent]
         result.log
@@ -79,7 +69,7 @@ module NetworkHelpers
   end
 
   def scp_to(host, from_path, to_path, options={})
-    if host.is_a? Network or host.kind_of? Array
+    if host.respond_to? :each
       host.each { |h| scp_to h, from_path, to_path, options }
     else
       result = host.do_scp(from_path, to_path)
@@ -103,7 +93,7 @@ module NetworkHelpers
   end
 
   def run_agent_on(host, arg='--no-daemonize --verbose --onetime --test', options={}, &block)
-    if host.is_a? Array
+    if host.respond_to? :each
       host.each { |h| run_agent_on h, arg, options, &block }
     else
       on host, PuppetCommand.new(:agent, arg), options, &block

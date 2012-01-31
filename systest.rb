@@ -1,28 +1,25 @@
 #!/usr/bin/env ruby
 
-require 'rubygems'
-require 'net/ssh'
-require 'net/scp'
-require 'net/http'
-require 'socket'
-require 'optparse'
-require 'systemu'
-require 'test/unit'
-require 'yaml'
-require 'lib/test_case/host'
+unless Kernel.respond_to?(:require_relative)
+  module Kernel
+    def require_relative(path)
+      require File.join(File.dirname(caller[0]), path.to_str)
+    end
+  end
+end
 
-Test::Unit.run = true
-Dir.glob(File.dirname(__FILE__) + '/lib/*.rb') {|file| require file}
+require_relative 'lib/options'
+require_relative 'lib/test_config'
+require_relative 'lib/test_suite'
+require_relative 'lib/network'
 
 trap(:INT) do
   Log.error "Interrupt received; exiting..."
   exit(1)
 end
 
-###################################
-#  Main
-###################################
-options=Options.parse_args
+options = Options.parse_args
+
 unless options[:config] then
   fail "Argh!  There is no default for Config, specify one!"
 end

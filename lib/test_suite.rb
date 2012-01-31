@@ -1,7 +1,8 @@
-# -*- coding: utf-8 -*-
-require 'rexml/document'
-
 class TestSuite
+  require 'rexml/document'
+  require_relative 'log'
+  require_relative 'test_case'
+
   attr_reader :name, :options, :config, :stop_on_error
 
   def initialize(name, hosts, options, config, stop_on_error=FALSE)
@@ -58,6 +59,8 @@ class TestSuite
       when :error
         Log.warn msg
         break if stop_on_error
+      else
+        Log.error "Test Status Could NOT Be Determined?!?!"
       end
     end
 

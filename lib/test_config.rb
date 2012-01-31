@@ -1,4 +1,6 @@
 module TestConfig
+  require 'yaml'
+  require_relative 'log'
 
   def self.ssh_defaults
     {

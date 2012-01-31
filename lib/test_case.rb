@@ -1,7 +1,10 @@
 class TestCase
   require 'benchmark'
-  require 'test/unit'
   require 'stringio'
+  require 'test/unit/assertions'
+  require_relative 'log'
+
+  class SkippedTest < StandardError; end
 
   include Test::Unit::Assertions
 
@@ -23,23 +26,28 @@ class TestCase
     # defined in the tests don't leak out to other tests.
     class << self
       def run_test
-        with_standard_output_to_logs do
-          @runtime = Benchmark.realtime do
-            begin
-              test = File.read(path)
-              eval test, nil, path, 1
-            rescue Test::Unit::AssertionFailedError => e
-              @test_status = :fail
-              @exception   = e
-            rescue StandardError, ScriptError => e
-              e.backtrace.each { |line| Log.error(line) }
-              @test_status = :error
-              @exception   = e
-            end
-          end
+        begin
+          test = File.read(path)
+          eval test, nil, path, 1
+        rescue TestCase::SkippedTest
+        rescue error_class => e
+          @test_status = :fail
+          @exception   = e
+        rescue StandardError, ScriptError => e
+          e.backtrace.each { |line| Log.error(line) }
+          @test_status = :error
+          @exception   = e
         end
         return self
       end
+    end
+  end
+
+  def error_class
+    if defined?(Test::Unit) && !defined?(MiniTest)
+      Test::Unit::AssertionFailedError
+    else
+      MiniTest::Assertion
     end
   end
 
@@ -61,16 +69,11 @@ class TestCase
     yield if block
   end
 
-  def test_name(test_name,&block)
-    Log.notify test_name
-    yield if block
-  end
-
   #
   # Basic operations
   #
   def hosts
-    @network
+    @network.hosts
   end
 
   def master
@@ -100,10 +103,11 @@ class TestCase
   def skip_test(msg)
     Log.notify "Skip: #{msg}"
     @test_status = :skip
+    raise TestCase::SkippedTest
   end
 
   def fail_test(msg)
-    assert(false, msg)
+    fail msg
   end
 
   #
@@ -177,7 +181,8 @@ class TestCase
     @network.create_remote_file hosts, file_path, file_content
   end
 
-  def with_standard_output_to_logs
+  def with_standard_output_to_logs &block
+    Log.warn "stdout is now #{$stdout}"
     stdout = ''
     old_stdout = $stdout
     $stdout = StringIO.new(stdout, 'w')
@@ -186,14 +191,22 @@ class TestCase
     old_stderr = $stderr
     $stderr = StringIO.new(stderr, 'w')
 
-    result = yield
+    result = yield if block_given?
 
     $stdout = old_stdout
     $stderr = old_stderr
 
-    stdout.each { |line| Log.notify(line) }
-    stderr.each { |line| Log.warn(line) }
+    stdout.each_line { |line| Log.notify(line) }
+    stderr.each_line { |line| Log.warn(line) }
 
     return result
   end
+
+private
+
+  def test_name(name, &block)
+    Log.notify name
+    yield if block_given?
+  end
+
 end

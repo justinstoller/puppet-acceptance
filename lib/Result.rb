@@ -1,4 +1,6 @@
 class Result
+  require_relative 'log'
+
   attr_accessor :host, :cmd, :stdout, :stderr, :exit_code
   def initialize(host=nil, cmd=nil, stdout=nil, stderr=nil, exit_code=nil)
     @host      = host

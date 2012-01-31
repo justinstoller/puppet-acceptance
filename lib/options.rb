@@ -1,4 +1,7 @@
 class Options
+  require 'optparse'
+  require_relative 'log'
+
   attr_reader :options
 
   def self.parse_args

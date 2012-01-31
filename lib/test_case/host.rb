@@ -1,6 +1,12 @@
 class TestCase
   class Host
+    require 'rubygems'
     require 'net/ssh'
+    require 'net/scp'
+    require_relative '../log'
+    require_relative '../result'
+    require_relative '../test_config'
+
     attr_reader :name, :overrides
 
     def self.create(name, overrides, defaults)
@@ -43,17 +49,20 @@ class TestCase
     def ssh
       tries = 1
       @ssh ||= begin
-                 Net::SSH.start(self, self['user'] || "root", self['ssh'])
-               rescue
-                 if tries < 4
-                   Log.warn "Error was class #{$!}"
-                   Log.warn "Try #{tries} -- Assuming Host Will Be Up Within A Minute"
-                   Log.warn 'Trying again in 20 seconds'
-                   sleep 20
-                   tries += 1
-                   retry
-                 end
-               end
+          Net::SSH.start(self, self['user'] || "root", self['ssh'])
+        rescue Errno::ECONNREFUSED
+          if tries < 4
+            sec = 80 - (20 * tries)
+            Log.warn "#{$!} (#{$!.class})"
+            Log.warn "Try #{tries} -- Assuming Host Will Be Up Within #{sec} Seconds"
+            Log.warn 'Trying again in 20 seconds'
+            sleep 20
+            tries += 1
+            retry
+          else
+            Log.error "Failed to establish a connection to #{self}"
+          end
+        end
     end
 
     def close
