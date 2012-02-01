@@ -3,6 +3,7 @@ class TestCase
   require 'stringio'
   require 'test/unit/assertions'
   require_relative 'log'
+  require_relative 'answers'
 
   class SkippedTest < StandardError; end
 
