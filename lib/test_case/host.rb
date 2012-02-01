@@ -7,7 +7,7 @@ class TestCase
     require_relative '../result'
     require_relative '../test_config'
 
-    attr_reader :name, :overrides
+    attr_reader :name, :overrides, :ssh
 
     def self.create(name, overrides, defaults)
       case overrides['platform']
@@ -41,6 +41,14 @@ class TestCase
 
     def +(other)
       @name + other
+    end
+
+    def is_dashboard?
+      self['roles'].include?('dashboard')
+    end
+
+    def is_master?
+      self['roles'].include?('dashboard')
     end
 
     # Wrap up the SSH connection process; this will cache the connection and
@@ -114,6 +122,7 @@ class TestCase
             terminal.process
             terminal.eof!
           end
+          channel.wait
         end
         # Process SSH activity until we stop doing that - which is when our
         # channel is finished with...
