@@ -1,3 +1,10 @@
+#
+# This module require that whatever it is mixed into provide a #hosts
+# method that yields each node in the network to be acted on
+#
+# TODO: Currently mixes both general network/ssh-state-machine methods and
+# Puppetlabs specific helpers
+#
 module NetworkHelpers
   require 'tempfile'
   require_relative 'log'
@@ -37,14 +44,19 @@ module NetworkHelpers
 
   def on(host, command, options={}, &block)
     if host.respond_to? :each
-      threads = []
-      host.each do |node|
-        new_block = block_given? ? block.dup : Proc.new {|a,b,c| }
-        threads << Thread.new(node, command, options) do |n,m,o|
-          on n, m, o, &new_block
-        end
+      #  This works to parallelize the tests, but with unfortunate
+      #  consequences for the rest of the harness
+      #  threads = []
+      #  host.each do |node|
+      #    new_block = block_given? ? block.dup : Proc.new {|a,b,c| }
+      #    threads << Thread.new(node, command, options) do |n,m,o|
+      #      on n, m, o, &new_block
+      #    end
+      #  end
+      #  threads.each {|t| t.join }
+      host.each do |h|
+        on h, command, options, &block
       end
-      threads.each {|t| t.join }
     else
       options[:acceptable_exit_codes] ||= [0]
       options[:failing_exit_codes]    ||= [1]
@@ -93,11 +105,7 @@ module NetworkHelpers
   end
 
   def run_agent_on(host, arg='--no-daemonize --verbose --onetime --test', options={}, &block)
-    if host.respond_to? :each
-      host.each { |h| run_agent_on h, arg, options, &block }
-    else
       on host, PuppetCommand.new(:agent, arg), options, &block
-    end
   end
 
   def run_cron_on(host, action, user, entry="", &block)
@@ -107,20 +115,23 @@ module NetworkHelpers
         when :list   then args = '-l'
         when :remove then args = '-r'
         when :add
-          on(host, "echo '#{entry}' > /var/spool/cron/crontabs/#{user}", &block)
+          on host,
+             "echo '#{entry}' > /var/spool/cron/crontabs/#{user}", &block
       end
     else         # default for GNU/Linux platforms
       case action
         when :list   then args = '-l -u'
         when :remove then args = '-r -u'
         when :add
-           on(host, "echo '#{entry}' > /tmp/#{user}.cron && crontab -u #{user} /tmp/#{user}.cron", &block)
+           on host,
+             "echo '#{entry}' > /tmp/#{user}.cron && crontab -u #{user} " +
+             "/tmp/#{user}.cron", &block
       end
     end
 
     if args
       case action
-        when :list, :remove then on(host, "crontab #{args} #{user}", &block)
+        when :list, :remove then on host, "crontab #{args} #{user}", &block
       end
     end
   end
