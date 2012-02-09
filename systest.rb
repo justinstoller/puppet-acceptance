@@ -12,6 +12,7 @@ require_relative 'lib/options'
 require_relative 'lib/test_config'
 require_relative 'lib/test_suite'
 require_relative 'lib/network'
+require_relative 'lib/log'
 
 trap(:INT) do
   Log.error "Interrupt received; exiting..."

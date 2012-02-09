@@ -9,6 +9,10 @@ class Command
     @command_string
   end
 
+  def to_s
+    cmd_line('')
+  end
+
   def puppet_env_command(host)
     rubylib = [
       host['pluginlibpath'],
@@ -41,7 +45,7 @@ class PuppetCommand < Command
     puppet_path = host[:puppetbinpath] || "/bin/puppet" # TODO: is this right?
 
     args_string = (@args + @options).join(' ')
-    "#{puppet_env_command(host)} puppet #{@sub_command} #{args_string}"
+    "#{puppet_env_command(host)} puppet #{@sub_command} #{args_string}\n"
   end
 end
 

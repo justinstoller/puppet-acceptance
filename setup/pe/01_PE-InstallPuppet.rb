@@ -46,9 +46,9 @@ if version =~ /^1.*/   #  Older version of PE, 1.x series
   hosts.each do |host|
     next if !( host['roles'].include? 'master' )
     step "SCP Master Answer file to #{host} #{host['dist']}"
-    scp_to host, "tmp/answers.#{host}", "/tmp/#{host['dist']}"
+    scp_to host, "tmp/answers.#{host}.#{version}.install", "/tmp/#{host['dist']}"
     step "Install Puppet Master"
-    on host,"cd /tmp/#{host['dist']} && ./puppet-enterprise-installer -a answers.#{host}"
+    on host,"cd /tmp/#{host['dist']} && ./puppet-enterprise-installer -a answers.#{host}.#{version}.install"
   end
 
   # Install Puppet Agents
@@ -61,9 +61,9 @@ if version =~ /^1.*/   #  Older version of PE, 1.x series
     role_dashboard=TRUE if host['roles'].include? 'dashboard'
 
     step "SCP Answer file to dist tar dir"
-    scp_to host, "tmp/answers.#{host}", "/tmp/#{host['dist']}"
+    scp_to host, "tmp/answers.#{host}.#{version}.install", "/tmp/#{host['dist']}"
     step "Install Puppet Agent"
-    on host,"cd /tmp/#{host['dist']} && ./puppet-enterprise-installer -a answers.#{host}"
+    on host,"cd /tmp/#{host['dist']} && ./puppet-enterprise-installer -a answers.#{host}.#{version}.install"
   end
 else  # New versions of PE 2.x
   Log.warn "Install PE version #{version}"
@@ -90,13 +90,13 @@ else  # New versions of PE 2.x
   hosts.each do |host|
     next if !( host['roles'].include? 'master' )
     step "SCP Master Answer file to #{host} #{host['dist']}"
-    scp_to host, "tmp/answers.#{host}", "/tmp/#{host['dist']}"
+    scp_to host, "tmp/answers.#{host}.#{version}.install", "/tmp/#{host['dist']}"
     step "Install Puppet Master"
     if options[:installonly] 
       Log.warn "--install-only selected, triggering alternate umask 0027 for install."
-      on host,"umask 0027 && cd /tmp/#{host['dist']} && ./puppet-enterprise-installer -a answers.#{host}"
+      on host,"umask 0027 && cd /tmp/#{host['dist']} && ./puppet-enterprise-installer -a answers.#{host}.#{version}.install"
     else
-      on host,"cd /tmp/#{host['dist']} && ./puppet-enterprise-installer -a answers.#{host}"
+      on host,"cd /tmp/#{host['dist']} && ./puppet-enterprise-installer -a answers.#{host}.#{version}.install"
     end
   end
 
@@ -110,13 +110,13 @@ else  # New versions of PE 2.x
     role_dashboard=TRUE if host['roles'].include? 'dashboard'
 
     step "SCP Answer file to dist tar dir"
-    scp_to host, "tmp/answers.#{host}", "/tmp/#{host['dist']}"
+    scp_to host, "tmp/answers.#{host}.#{version}.install", "/tmp/#{host['dist']}"
     step "Install Puppet Agent"
-    if options[:installonly] 
+    if options[:installonly]
       Log.warn "--install-only selected, triggering alternate umask 0027 for install."
-      on host,"umask 0027 && cd /tmp/#{host['dist']} && ./puppet-enterprise-installer -a answers.#{host}"
+      on host,"umask 0027 && cd /tmp/#{host['dist']} && ./puppet-enterprise-installer -a answers.#{host}.#{version}.install"
     else
-      on host,"cd /tmp/#{host['dist']} && ./puppet-enterprise-installer -a answers.#{host}"
+      on host,"cd /tmp/#{host['dist']} && ./puppet-enterprise-installer -a answers.#{host}.#{version}.install"
     end
   end
 end

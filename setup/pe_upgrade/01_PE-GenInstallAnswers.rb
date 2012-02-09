@@ -14,13 +14,13 @@ version = options[:upgrade]
 type = 'install'
 
 hosts.each do |host|
-  host['answers']  = AnswerFile.new
-  host['answers'] << GlobalAnswers.new(version)
-  host['answers'] << AgentAnswers.new(version)
-  host['answers'] << DashboardAnswers.new(version) if host.is_dashboard?
-  host['answers'] << MasterAnswers.new(version) if host.is_master?
-  host['answers'] << UpgradeAnswers.new(version) if type == 'upgrade'
-  host['answers'] << UninstallAnswers.new(version) if type == 'uninstall'
+  host['answers']  = AnswerFile.new(@network, version)
+  host['answers'] << GlobalAnswers.new(@network, version)
+  host['answers'] << AgentAnswers
+  host['answers'] << DashboardAnswers if host.is_dashboard?
+  host['answers'] << MasterAnswers if host.is_master?
+  host['answers'] << UpgradeAnswers if type == 'upgrade'
+  host['answers'] << UninstallAnswers if type == 'uninstall'
 end
 
 hosts.each do |host|

@@ -1,8 +1,7 @@
 class Result
-  require_relative 'log'
 
   attr_accessor :host, :cmd, :stdout, :stderr, :exit_code
-  def initialize(host=nil, cmd=nil, stdout=nil, stderr=nil, exit_code=nil)
+  def initialize(host=nil, cmd='', stdout='', stderr='', exit_code=nil)
     @host      = host
     @cmd       = cmd
     @stdout    = stdout
@@ -12,8 +11,8 @@ class Result
 
   def log
     Log.debug
-    Log.debug "<STDOUT>\n#{host}: #{stdout}\n</STDOUT>"
-    Log.debug "<STDERR>\n#{host}: #{stderr}\n</STDERR>"
-    Log.debug "#{host}: Exited with #{exit_code}"
+    Log.debug "<STDOUT>\n#{@host}: #{@stdout}\n</STDOUT>"
+    Log.debug "<STDERR>\n#{@host}: #{@stderr}\n</STDERR>"
+    Log.debug "#{@host}: Exited with #{@exit_code}"
   end
 end

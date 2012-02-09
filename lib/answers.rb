@@ -14,18 +14,18 @@ class Answer
   end
 
   def @state.to_s
-    if is_a? String
-      self
-    elsif self
-      'y'
-    else
-      'n'
-    end
   end
 
   def to_s
     if @defined
-      "#{@title}=#{@state}"
+      "#{@title}=#{if @state == true
+                     'y'
+                   elsif @state == false
+                     'n'
+                   else
+                     @state
+                   end
+      }"
     else
       ''
     end
@@ -33,18 +33,25 @@ class Answer
 end
 
 class AnswerGroup
-  require_relative 'network'
+  require_relative 'network_helpers'
+  include NetworkHelpers
 
-  attr_reader :answers, :name
+  def initialize(network, host, version=nil)
+    @network = network
+    @version = version
+    @host = host
+  end
 
-  def initialize(version=nil)
-    @version = nil
-    @answers = {}
-    @name = self.class.name
-    @answers[@name] = {
-      :class => self,
-      :methods => self.class.public_instance_methods(false)
-    }
+  def [](meth)
+    self.send(meth.to_sym)
+  end
+
+  def host
+    @host
+  end
+
+  def hosts(role = nil)
+    @network.select { |host| role.nil? or host['roles'].include?(role) }
   end
 
   def console_name
@@ -52,29 +59,24 @@ class AnswerGroup
       'puppetdashboard' : 'puppet_enterpriseconsole'
   end
 
-  def <<(other)
-    if @answers['GlobalAnswers']
-      @answers['GlobalAnswers'][:methods] -= other.answers[other.name][:methods]
-    end
-    @answers.merge other.answers
+  def <<(role_module)
+    extend role_module
   end
 
   def to_s
     out = ''
-    @answers.each do |group|
+    singleton_methods.sort.each do |meth|
+      out += self.send(meth.to_sym).to_s
       out += "\n"
-      group[:methods].each do |answer|
-        out += "#{group[:klass].call(answer)}\n"
-      end
     end
-    out
+    return out
   end
 end
 
 class AnswerFile < AnswerGroup
 end
 
-class GlobalAnswers < AnswerGroup
+module GlobalAnswers
   def agent_install
     @agent_install ||= Answer.new('q_puppetagent_install', true)
   end
@@ -105,154 +107,154 @@ class GlobalAnswers < AnswerGroup
   end
 end
 
-class AgentAnswers < AnswerGroup
+module AgentAnswers
   def agent_install
     @agent_install ||= Answer.new('q_puppetagent_install', true)
   end
 
-  def agents_name
+  def agent_name
     @agents_name ||= Answer.new('q_puppetagent_certname', $certcmd)
   end
 
-  def agents_master
-    @agents_master ||= master['answers'].masters_name
+  def agent_master
+    @agents_master ||= master['answers']['master_name']
   end
 end
 
-class DashboardAnswers < AnswerGroup
+module DashboardAnswers
 
   def console_install
     @console_install ||= Answer.new("q_#{console_name}_install", true)
   end
 
-  def consoles_port
+  def console_port
     @consoles_port ||= Answer.new(
       "q_#{console_name}_httpd_port",
       '443')
   end
 
-  def consoles_auth_user
+  def console_auth_user
     @consoles_auth_user ||= Answer.new(
       "q_#{console_name}_auth_user",
       'console')
   end
 
-  def consoles_auth_pass
+  def console_auth_pass
     @consoles_auth_pass ||= Answer.new(
       "q_#{console_name}_auth_password",
       'puppet')
   end
 
-  def consoles_inventory_name
+  def console_inventory_name
     @consoles_inventory_name ||= Answer.new(
       "q_#{console_name}_inventory_certname",
       $certcmd)
   end
 
-  def consoles_inventory_alt_names
+  def console_inventory_alt_names
     @consoles_inventory_alt_names ||= Answer.new(
       "q_#{console_name}_inventory_dnsaltnames",
-      "#{$certcmd}:#{$certcmd}.puppetlabs.lan:inventory_service")
+      "#{$certcmd},#{$certcmd}.puppetlabs.lan,inventory_service")
   end
 
-  def consoles_inventory_host
+  def console_inventory_host
     @consoles_inventory_host ||= Answer.new(
       "q_#{console_name}_inventory_hostname",
       $certcmd)
   end
 
-  def consoles_inventory_port
+  def console_inventory_port
     @consoles_inventory_port ||= Answer.new(
       "q_#{console_name}_inventory_port",
       '8140')
   end
 
-  def consoles_master
+  def console_master
     @consoles_master ||= Answer.new(
       "q_#{console_name}_master_hostname",
       master)
   end
 
-  def consoles_dbs_install
+  def console_db_install
     @consoles_dbs_install ||= Answer.new(
       "q_#{console_name}_database_install",
       true)
   end
 
-  def consoles_dbs_remote
+  def console_db_remote
     @consoles_dbs_remote ||= Answer.new(
       "q_#{console_name}_database_remote",
       database != master ? true : false)
   end
 
-  def consoles_dbs_setup
+  def console_db_setup
     @consoles_dbs_setup ||= Answer.new(
       "q_#{console_name}_setup_db",
       true)
   end
 
-  def consoles_dbs_host
+  def console_db_host
     @consoles_dbs_host ||= Answer.new(
       "q_#{console_name}_database_host",
-      database)
+      database == host ? 'localhost' : database)
   end
 
-  def consoles_dbs_port
+  def console_db_port
     @consoles_dbs_port ||= Answer.new(
       "q_#{console_name}_database_port",
       '3306')
   end
 
-  def consoles_dbs_root_pass
+  def console_db_root_pass
     @consoles_dbs_root_pass ||= Answer.new(
       "q_#{console_name}_database_root_password",
       'puppet')
   end
 
-  def consoles_dbs_name
+  def console_db_name
     @consoles_dbs_name ||= Answer.new(
       "q_#{console_name}_database_name",
       'console')
   end
 
-  def consoles_dbs_user
+  def console_db_user
     @consoles_dbs_user ||= Answer.new(
       "q_#{console_name}_database_user",
       'console')
   end
 
-  def consoles_dbs_users_pass
+  def console_db_user_pass
     @consoles_dbs_users_pass ||= Answer.new(
       "q_#{console_name}_database_password",
       'puppet')
   end
 end
 
-class MasterAnswers < AnswerGroup
+module MasterAnswers
   def master_install
-    @master_install ||= Answer.new('q_puppetmaster_install', false)
+    @master_install ||= Answer.new('q_puppetmaster_install', true)
   end
 
-  def masters_name
+  def master_name
     @masters_name ||= Answer.new('q_puppetmaster_certname', $certcmd)
   end
 
-  def masters_alt_names
+  def master_alt_names
     @masters_alt_names ||= Answer.new(
       'q_puppetmaster_dnsaltnames',
-      "#{$certcmd}:#{certcmd}.puppetlabs.lan:puppet_master")
+      "#{$certcmd},#{$certcmd}.puppetlabs.lan,puppetmaster")
   end
 
-  def masters_console_host
-    @masters_console_host ||= dashboard
+  def master_console_host
+    @masters_console_host ||= Answer.new('q_puppetmaster_enterpriseconsole_http_port', dashboard)
   end
 
-  def masters_console_port
-    @masters_console_port ||= dashboard['answers'].consoles_port
+  def master_console_port
+    @masters_console_port ||= dashboard['answers']['console_port']
   end
 end
 
-class UpgradeAnswers < AnswerGroup
+module UpgradeAnswers
   def upgrade
     @upgrade ||= Answer.new('q_upgrade_installation', true)
   end
@@ -268,7 +270,7 @@ class UpgradeAnswers < AnswerGroup
   end
 end
 
-class UninstallAnswers < AnswerGroup
+module UninstallAnswers
   def uninstall
     @uninstall ||= Answer.new('q_pe_uninstall', true)
   end
@@ -284,7 +286,7 @@ class UninstallAnswers < AnswerGroup
   def db_root_pass
     @db_root_pass ||= Answer.new(
       'q_pe_db_root_pass',
-      dashboard['answers'].consoles_dbs_root_pass)
+      dashboard['answers']['console_db_root_pass'])
   end
 end
 

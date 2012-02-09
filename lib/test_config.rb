@@ -1,6 +1,5 @@
 module TestConfig
   require 'yaml'
-  require_relative 'log'
 
   def self.ssh_defaults
     {
@@ -43,7 +42,7 @@ module TestConfig
   end
 
   def self.puppet_enterprise_version
-    @pe_version ||= Options.parse_args[:pe_version] || load_pe_version if is_pe?
+    @pe_version ||= ( Options.parse_args[:pe_version] || load_pe_version ) if is_pe?
   end
 
   def self.load_pe_version

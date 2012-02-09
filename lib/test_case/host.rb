@@ -3,11 +3,10 @@ class TestCase
     require 'rubygems'
     require 'net/ssh'
     require 'net/scp'
-    require_relative '../log'
     require_relative '../result'
-    require_relative '../test_config'
 
-    attr_reader :name, :overrides, :ssh
+    attr_reader :name, :overrides
+    attr_accessor :stdout, :stderr, :exit_code
 
     def self.create(name, overrides, defaults)
       case overrides['platform']
@@ -21,6 +20,8 @@ class TestCase
     # A cache for active SSH connections to our execution nodes.
     def initialize(name, overrides, defaults)
       @name, @overrides, @defaults = name, overrides, defaults
+      @stderr = @stdout = ''
+      @exit_code = nil
     end
 
     def []=(k,v)
@@ -48,7 +49,11 @@ class TestCase
     end
 
     def is_master?
-      self['roles'].include?('dashboard')
+      self['roles'].include?('master')
+    end
+
+    def is_database?
+      self['roles'].include?('database')
     end
 
     # Wrap up the SSH connection process; this will cache the connection and
@@ -78,70 +83,86 @@ class TestCase
     end
 
     def do_action(verb,*args)
-      result = Result.new(self, args, '', '', 0)
       Log.debug "#{self}: #{verb}(#{args.inspect})"
-      yield result unless $dry_run
-      result
     end
 
     def exec(command, options)
-      do_action('RemoteExec', command) do |result|
-        ssh.open_channel do |channel|
-          if options[:pty] then
-            channel.request_pty do |ch, success|
-              if success
-                puts "Allocated a PTY on #{@name} for #{command.inspect}"
-              else
-                abort "FAILED: could not allocate a pty when requested on " +
-                  "#{@name} for #{command.inspect}"
-              end
-            end
-          end
+      do_action 'RemoteExec', command
+      set_callbacks_for command, options
+      ssh.loop
+    end
 
-          channel.exec(command) do |terminal, success|
-            msg = "FAILED: to execute command on a new channel on #{@name}"
-            abort msg unless success
+    def set_callbacks_for(command, options)
+      ssh.open_channel do |channel|
+        request_pty_for(channel) if options[:pty]
+        execute_on(channel, command, options[:stdin])
+      end
+    end
 
-            terminal.on_data do |ch, data|
-              result.stdout << data
-            end
+    def execute_on(channel, command, stdin)
+      channel.exec command do |ch, success|
+        abort "FAILED: to execute command on a new channel on #{@name}" unless success
+        set_stdout_from ch
+        set_stderr_from ch
+        set_exit_code_from ch
 
-            terminal.on_extended_data do |ch, type, data|
-              result.stderr << data if type == 1
-            end
+        eof_stdin_for ch, stdin if stdin
+      end
+    end
 
-            terminal.on_request("exit-status") do |ch, data|
-              result.exit_code = data.read_long
-            end
+    def reset_streams
+      @stderr = @stdout = ''
+    end
 
-            # queue stdin data, force it to packets, and signal eof: this
-            # triggers action in many remote commands, notably including
-            # 'puppet apply'.  It must be sent at some point before the rest
-            # of the action.
-            terminal.send_data(options[:stdin].to_s)
-            terminal.process
-            terminal.eof!
-          end
-          channel.wait
+    def request_pty_for(channel)
+      channel.request_pty do |ch, success|
+        if success
+          puts "Allocated a PTY on #{@name}"
+        else
+          abort "FAILED: could not allocate a pty when requested on #{@name}}"
         end
-        # Process SSH activity until we stop doing that - which is when our
-        # channel is finished with...
-        ssh.loop
+      end
+    end
+
+    def eof_stdin_for(channel, stdin)
+      channel.send_data stdin
+      channel.process
+      channel.eof!
+    end
+
+    def set_stdout_from(channel)
+      channel.on_data do |ch, data|
+        @stdout << data
+      end
+    end
+
+    def set_stderr_from(channel)
+      channel.on_extended_data do |ch, type, data|
+        @stderr << data if type == 1
+      end
+    end
+
+    def set_exit_code_from(channel)
+      channel.on_request "exit-status" do |ch, data|
+        @exit_code = data.read_long
       end
     end
 
     def do_scp(source, target)
-      do_action("ScpFile", source, target) { |result|
-        # Net::Scp always returns 0, so just set the return code to 0 Setting
-        # these values allows reporting via result.log(test_name)
-        result.stdout = "SCP'ed file #{source} to #{@host}:#{target}"
-        result.stderr = nil
-        result.exit_code = 0
-        recursive_scp = 'false'
-        recursive_scp = 'true' if File.directory? source
-        ssh.scp.upload!(source, target, :recursive => recursive_scp)
-      }
+      do_action('ScpFile', source, target)
+      @stderr = ''
+      @exit_code = 0
+      recurse = File.directory?(source) ? true : false
+      output_format = scp_output
+      ssh.scp.upload!(source, target, :recursive => recurse, &output_format)
     end
+
+    def scp_output
+      @scp_output ||= Proc.new do |ch, name, sent, total|
+        @stdout << "#{@name}: #{name}  #{sent}/#{total}\n"
+      end
+    end
+
   end
 
   class UnixHost < Host

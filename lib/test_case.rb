@@ -2,7 +2,6 @@ class TestCase
   require 'benchmark'
   require 'stringio'
   require 'test/unit/assertions'
-  require_relative 'log'
   require_relative 'answers'
 
   class SkippedTest < StandardError; end
@@ -35,6 +34,7 @@ class TestCase
           @test_status = :fail
           @exception   = e
         rescue StandardError, ScriptError => e
+          Log.error e.inspect
           e.backtrace.each { |line| Log.error(line) }
           @test_status = :error
           @exception   = e
@@ -90,7 +90,30 @@ class TestCase
   end
 
   def on(host, command, options={}, &block)
-    @network.on host, command, options, &block
+    if host.respond_to? :each
+      @network.concurrently_on host, command, options, &block
+      host.each do |host|
+        check_exit_codes host, command, options
+        block.call host.stdout, host.stderr, host.exit_code if block_given?
+      end
+    else
+      @network.on host, command, options, &block
+      check_exit_codes host, command, options
+      block.call host.stdout, host.stderr, host.exit_code if block_given?
+    end
+    @network.reset_streams_for host
+  end
+
+  def check_exit_codes(host, command, options)
+    options[:acceptable_exit_codes] ||= [0]
+    options[:failing_exit_codes]    ||= [1]
+    unless options[:silent]
+      unless options[:acceptable_exit_codes].include?(host.exit_code)
+        Log.debug "Exit code is: #{host.exit_code}"
+        fail_test "Host #{host} exited with #{host.exit_code}" +
+               " running: #{command}"
+      end
+    end
   end
 
   def scp_to(host, from_path, to_path, options={})
@@ -108,7 +131,7 @@ class TestCase
   end
 
   def fail_test(msg)
-    fail msg
+    raise error_class, msg
   end
 
   #

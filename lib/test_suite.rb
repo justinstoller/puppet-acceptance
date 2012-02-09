@@ -1,6 +1,5 @@
 class TestSuite
   require 'rexml/document'
-  require_relative 'log'
   require_relative 'test_case'
 
   attr_reader :name, :options, :config, :stop_on_error
