@@ -27,6 +27,7 @@ if version =~ /^1.*/   #  Older version of PE, 1.x series
       end
     end
     host['dist'] = "puppet-enterprise-#{version}-#{platform}"
+    host['install_dir'] = "/tmp/#{host['dist']}"
   
     unless File.file? "#{distpath}/#{host['dist']}.tar"
       Log.error "PE #{host['dist']}.tar not found, help!"
