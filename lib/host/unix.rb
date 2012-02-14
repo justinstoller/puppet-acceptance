@@ -9,7 +9,6 @@ module Unix
     require 'lib/host/unix/exec'
     require 'lib/host/unix/package'
     require 'lib/host/unix/service'
-    require 'lib/host/unix/utilities'
 
     include Unix::User
     include Unix::Group
@@ -17,7 +16,6 @@ module Unix
     include Unix::Exec
     include Unix::Package
     include Unix::Service
-    include Unix::Utilities
 
     PE_DEFAULTS = {
       'user'            => 'root',
