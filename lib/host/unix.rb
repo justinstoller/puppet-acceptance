@@ -20,10 +20,12 @@ module Unix
     include Unix::Utilities
 
     PE_DEFAULTS = {
-      'user'         => 'root',
-      'puppetpath'   => '/etc/puppetlabs/puppet',
-      'puppetbin'    => '/usr/local/bin/puppet',
-      'puppetbindir' => '/opt/puppet/bin'
+      'user'            => 'root',
+      'puppetpath'      => '/etc/puppetlabs/puppet',
+      'puppetbin'       => '/usr/local/bin/puppet',
+      'puppetbindir'    => '/opt/puppet/bin',
+      'dashboard_home'  => '/opt/puppet/share/puppet-dashboard',
+      'rake'            => '/opt/puppet/bin/rake'
     }
 
     DEFAULTS = {
@@ -31,7 +33,8 @@ module Unix
       'puppetpath'   => '/etc/puppet',
       'puppetvardir' => '/var/lib/puppet',
       'puppetbin'    => '/usr/bin/puppet',
-      'puppetbindir' => '/usr/bin'
+      'puppetbindir' => '/usr/bin',
+      'rake'         => 'rake'
     }
 
     def initialize(name, overrides, defaults)
