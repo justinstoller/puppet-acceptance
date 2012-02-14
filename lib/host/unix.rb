@@ -7,11 +7,13 @@ module Unix
     require 'lib/host/unix/group'
     require 'lib/host/unix/file'
     require 'lib/host/unix/exec'
+    require 'lib/host/unix/package'
 
     include Unix::User
     include Unix::Group
     include Unix::File
     include Unix::Exec
+    include Unix::Package
 
     PE_DEFAULTS = {
       'user'         => 'root',
