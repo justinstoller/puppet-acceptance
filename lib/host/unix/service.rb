@@ -1,4 +1,4 @@
-module Unix::Serice
+module Unix::Service
   include CommandFactory
 
   def service(name, action)
