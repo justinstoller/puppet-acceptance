@@ -18,6 +18,7 @@ class TestCase
     @test_status = :pass
     @exception = nil
     @runtime = nil
+    @tests = []
     #
     # We put this on each wrapper (rather than the class) so that methods
     # defined in the tests don't leak out to other tests.
@@ -39,7 +40,7 @@ class TestCase
             end
           end
         end
-        return self
+        return @tests.empty? ? [ self ] : @tests
       end
     end
   end
@@ -83,7 +84,8 @@ class TestCase
 
   def test_name(test_name,&block)
     Log.notify test_name
-    yield if block
+    @tests << self
+    yield if block_given?
   end
   #
   # Basic operations
