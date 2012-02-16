@@ -19,16 +19,34 @@ class TestCase
     @exception = nil
     @runtime = nil
     @tests = []
+    @test_name = @path
     #
     # We put this on each wrapper (rather than the class) so that methods
     # defined in the tests don't leak out to other tests.
     class << self
       def run_test
+        Log.warn "Run Test"
+        eval_test do
+          test = File.read(path)
+          eval test,nil,path,1
+        end
+        return @tests.empty? ? [ self ] : @tests
+      end
+
+      def eval_test_block(&block)
+        Log.warn "Eval Test Block"
+        eval_test do
+          block.call
+        end
+        return self
+      end
+
+      def eval_test(&block)
+        Log.warn "Eval Test"
         with_standard_output_to_logs do
           @runtime = Benchmark.realtime do
             begin
-              test = File.read(path)
-              eval test,nil,path,1
+              block.call
             rescue Test::Unit::AssertionFailedError => e
               @test_status = :fail
               @exception   = e
@@ -40,10 +58,15 @@ class TestCase
             end
           end
         end
-        return @tests.empty? ? [ self ] : @tests
+      end
+
+      def test_name(test_name, &block)
+        Log.notify test_name
+        @tests << self.class.new(@hosts, @config).eval_test_block(&block) if block_given?
       end
     end
   end
+
 
   def to_hash
     hash = {}
@@ -80,12 +103,6 @@ class TestCase
   def step(step_name,&block)
     Log.notify "  * #{step_name}"
     yield if block
-  end
-
-  def test_name(test_name,&block)
-    Log.notify test_name
-    @tests << self
-    yield if block_given?
   end
   #
   # Basic operations
@@ -338,7 +355,8 @@ class TestCase
     end
   end
 
-  def with_standard_output_to_logs
+  def with_standard_output_to_logs(&block)
+    Log.warn "Hello"
     stdout = ''
     old_stdout = $stdout
     $stdout = StringIO.new(stdout, 'w')
@@ -347,7 +365,7 @@ class TestCase
     old_stderr = $stderr
     $stderr = StringIO.new(stderr, 'w')
 
-    result = yield
+    result = yield if block_given?
 
     $stdout = old_stdout
     $stderr = old_stderr
