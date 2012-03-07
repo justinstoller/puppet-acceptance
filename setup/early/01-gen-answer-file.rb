@@ -28,6 +28,7 @@ q_puppetmaster_enterpriseconsole_hostname=DASHBOARD
 q_puppetmaster_enterpriseconsole_port=#{portno}
 q_puppetmaster_forward_facts=y
 q_puppetmaster_install=y
+q_puppetca_hostname=CA
 ]
 
 # Dashboard only answers
@@ -56,16 +57,11 @@ q_puppet_enterpriseconsole_inventory_certname=`uname | grep -i sunos > /dev/null
 q_puppet_enterpriseconsole_inventory_dnsaltnames=MASTER
 ] + "\nq_puppet_enterpriseconsole_httpd_port=#{portno}\n"
 
-dashboardhost = nil
 hosts.each do |host|  # Clean up all answer files that might conflict
   FileUtils.rm ["tmp/answers.#{host}"] if File.exists? "tmp/answers.#{host}"
 end
 
-hosts.each do |host|   # find our dashboard host for laster use
-  dashboardhost = host if host['roles'].include? 'dashboard'
-end
-
-raise "No Dashboard host configured" unless dashboardhost
+raise "No Dashboard host configured" unless dashboard
 # For all defined hosts...
 hosts.each do |host|
   answers=''
@@ -77,20 +73,21 @@ hosts.each do |host|
   role_master=TRUE    if host['roles'].include? 'master'
   role_cloudpro=TRUE  if host['roles'].include? 'cloudpro'
   role_dashboard=TRUE if host['roles'].include? 'dashboard'
+  role_ca=TRUE        if host['roles'].include? 'ca'
 
   answers=common_a
-  if role_agent  
-    answers=answers + agent_a + 'q_puppetagent_install=\'y\'' + "\n" 
-  else 
+  if role_agent
+    answers=answers + agent_a + 'q_puppetagent_install=\'y\'' + "\n"
+  else
     answers=answers + 'q_puppetagent_install=\'n\'' + "\n"
   end
-  
+
   if role_master
     answers=answers + master_a + 'q_puppetmaster_install=\'y\'' + "\n"
   else
     answers=answers + 'q_puppetmaster_install=\'n\'' + "\n"
   end
-  
+
   if role_cloudpro
     answers=answers + 'q_puppet_cloud_install=\'y\'' + "\n"
   else
@@ -102,23 +99,32 @@ hosts.each do |host|
   else
     answers=answers + 'q_puppetdashboard_install=\'n\'' + "\n"
   end
-  
+
+  if role_ca
+    answers = answers + "q_puppetca_install=y\n"
+  else
+    answers = answers + "q_puppetca_install=y\n"
+  end
+
   File.open("tmp/answers.#{host}", 'w') do |fh|
     answers.split(/\n/).each do |line| 
       if line =~ /(q_puppetagent_server=)MASTER/ then
         line = $1+master
       end
       if line =~ /(q_puppetmaster_enterpriseconsole_hostname=)DASHBOARD/ then
-        line = $1+dashboardhost
+        line = $1 + dashboard
       end
       if line =~ /(q_puppet_enterpriseconsole_smtp_host=)DASHBOARD/ then
-        line = $1+dashboardhost
+        line = $1 + dashboard
       end
       if line =~ /(q_puppet_enterpriseconsole_master_hostname=)MASTER/ then
-        line = $1+master
+        line = $1 + master
       end
       if line =~ /(q_puppet_enterpriseconsole_inventory_dnsaltnames=)MASTER/ then
-        line = $1+master+',puppetinventory'
+        line = $1 + master+',puppetinventory'
+      end
+      if line =~ /(q_puppetca_hostname=)CA/ then
+        line = "#{$1}#{ca}"
       end
       fh.puts line
     end

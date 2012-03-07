@@ -228,4 +228,10 @@ class TestCase
     fail "Cannot have more than one dashboard host" if dashboards.length > 1
     dashboards.first
   end
+
+  def ca
+    cas = hosts 'ca'
+    skip_test "This test references CA(s) but none are configured" if cas.empty?
+    cas
+  end
 end
