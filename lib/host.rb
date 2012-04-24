@@ -78,11 +78,17 @@ class Host
         channel.exec(command) do |terminal, success|
           abort "FAILED: to execute command on a new channel on #{@name}" unless success
           terminal.on_data do |ch, data|
+            result.raw_output << data
+            result.raw_stdout << data
+            data.gsub! /\r\n?/, "\n"
             result.stdout << data
             result.output << data
           end
           terminal.on_extended_data do |ch, type, data|
             if type == 1
+              result.raw_output << data
+              result.raw_stderr << data
+              data.gsub! /\r\n?/, "\n"
               result.stderr << data
               result.output << data
             end
