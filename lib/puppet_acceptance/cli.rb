@@ -25,7 +25,9 @@ module PuppetAcceptance
           exit(1)
         end
 
+        @logger.warn @options[:pre_script].inspect
         if @options[:pre_script]
+          @logger.warn pre_options.inspect
           run_suite('pre-setup', pre_options, :fail_fast) 
         else
           run_suite('setup', setup_options, :fail_fast)
