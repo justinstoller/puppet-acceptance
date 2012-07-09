@@ -90,9 +90,11 @@ module PuppetAcceptance
     end
 
     def pre_options
+      root = File.expand_path(File.dirname(__FILE__), '..', '..')
       @options.merge({
         :random => false,
-        :tests => [ "setup/early", @options[:pre_script], *@options[:tests] ] })
+        :tests => [ "#{root}/setup/early",
+                    "#{root}/#{@options[:pre_script]}", *@options[:tests] ] })
     end
 
     def pre_suite_options
