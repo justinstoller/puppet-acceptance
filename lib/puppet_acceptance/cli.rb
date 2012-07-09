@@ -25,13 +25,16 @@ module PuppetAcceptance
           exit(1)
         end
 
-        run_suite('pre-setup', pre_options, :fail_fast) if @options[:pre_script]
-        run_suite('setup', setup_options, :fail_fast)
-        run_suite('pre-suite', pre_suite_options)
-        begin
-          run_suite('acceptance', @options) unless @options[:installonly]
-        ensure
-          run_suite('post-suite', post_suite_options)
+        if @options[:pre_script]
+          run_suite('pre-setup', pre_options, :fail_fast) 
+        else
+          run_suite('setup', setup_options, :fail_fast)
+          run_suite('pre-suite', pre_suite_options)
+          begin
+            run_suite('acceptance', @options) unless @options[:installonly]
+          ensure
+            run_suite('post-suite', post_suite_options)
+          end
         end
 
       ensure
@@ -87,7 +90,7 @@ module PuppetAcceptance
     def pre_options
       @options.merge({
         :random => false,
-        :tests => [ 'setup/early/00-vmrun.rb', @options[:pre_script] ] })
+        :tests => [ "setup/early", @options[:pre_script], @options[:tests] ] })
     end
 
     def pre_suite_options
