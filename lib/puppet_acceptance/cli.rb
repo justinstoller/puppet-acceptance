@@ -90,7 +90,7 @@ module PuppetAcceptance
     def pre_options
       @options.merge({
         :random => false,
-        :tests => [ "setup/early", @options[:pre_script], @options[:tests] ] })
+        :tests => [ "setup/early", @options[:pre_script], *@options[:tests] ] })
     end
 
     def pre_suite_options
