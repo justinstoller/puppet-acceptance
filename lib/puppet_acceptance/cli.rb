@@ -25,19 +25,10 @@ module PuppetAcceptance
           exit(1)
         end
 
-        @logger.warn @options[:pre_script].inspect
-        if @options[:pre_script]
-          @logger.warn pre_options.inspect
-          run_suite('pre-setup', pre_options, :fail_fast) 
-        else
-          run_suite('setup', setup_options, :fail_fast)
-          run_suite('pre-suite', pre_suite_options)
-          begin
-            run_suite('acceptance', @options) unless @options[:installonly]
-          ensure
-            run_suite('post-suite', post_suite_options)
-          end
-        end
+        run_suite('setup', setup_options, :fail_fast)
+        run_suite('patch', pre_options, :fail_fast)
+        run_suite('acceptance', @options) unless @options[:installonly]
+      end
 
       ensure
         @hosts.each {|host| host.close }
@@ -90,11 +81,9 @@ module PuppetAcceptance
     end
 
     def pre_options
-      root = File.expand_path(File.join(File.dirname(__FILE__), '..', '..'))
       @options.merge({
         :random => false,
-        :tests => [ "#{root}/setup/early",
-                    "#{root}/#{@options[:pre_script]}", *@options[:tests] ] })
+        :tests => [ @options[:pre_script] ] })
     end
 
     def pre_suite_options
