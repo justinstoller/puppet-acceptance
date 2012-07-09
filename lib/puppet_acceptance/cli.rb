@@ -87,7 +87,7 @@ module PuppetAcceptance
     def pre_options
       @options.merge({
         :random => false,
-        :tests => [ 'setup/early', @options[:pre_script] ] })
+        :tests => [ 'setup/early/00-vmrun.rb', @options[:pre_script] ] })
     end
 
     def pre_suite_options
