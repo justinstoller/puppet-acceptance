@@ -28,7 +28,6 @@ module PuppetAcceptance
         run_suite('setup', setup_options, :fail_fast)
         run_suite('patch', pre_options, :fail_fast)
         run_suite('acceptance', @options) unless @options[:installonly]
-      end
 
       ensure
         @hosts.each {|host| host.close }
