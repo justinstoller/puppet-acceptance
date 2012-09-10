@@ -1,6 +1,6 @@
 #!/usr/bin/env ruby
 
-require 'rubygems'
+require 'rubygems' unless defined?(Gem)
 require 'net/ssh'
 require 'net/scp'
 require 'net/http'
@@ -8,31 +8,17 @@ require 'socket'
 require 'optparse'
 require 'systemu'
 require 'test/unit'
+require 'yaml'
 
 Test::Unit.run = true
-Dir.glob(File.dirname(__FILE__) + '/lib/*.rb') {|file| require file}
 
-trap(:INT) do
-  Log.error "Interrupt received; exiting..."
-  exit(1)
+Dir[
+  File.expand_path(File.dirname(__FILE__)+'/lib/puppet_acceptance/*.rb')
+].each do |file|
+  require file
 end
 
-###################################
-#  Main
-###################################
-options=Options.parse_args
-unless options[:config] then
-  fail "Argh!  There is no default for Config, specify one!"
-end
+PuppetAcceptance::CLI.new.execute!
 
-Log.debug "Using Config #{options[:config]}"
-
-config = TestConfig.load_file(options[:config])
-
-setup_options = options.merge({ :random => false,
-                                :tests  => ["setup/early", "setup/#{options[:type]}"] })
-TestSuite.new('setup', setup_options, config).run_and_exit_on_failure
-TestSuite.new('acceptance', options, config).run_and_exit_on_failure
-
-Log.notify "systest completed successfully, thanks."
+puts "systest completed successfully, thanks."
 exit 0
