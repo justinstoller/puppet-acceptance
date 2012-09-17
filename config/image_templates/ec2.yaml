@@ -1,6 +1,6 @@
 AMI:
   el-6-x86_64:
-    :image: 
+    :image:
       :pe: ami-57db123e
       :foss: ami-57db123e
     :region: us-east-1
@@ -18,4 +18,16 @@ AMI:
     :image:
       :pe: ami-edae6384
       :foss: ami-edae6384
+    :region: us-east-1
+  ubuntu-12.04-x86_64:
+    :image:
+      :pe: ami-137bcf7a
+    :region: us-east-1
+  amazon-2012.03-x86_64:
+    :image:
+      :pe: ami-aecd60c7
+    :region: us-east-1
+  sles-11-x86_64:
+    :image:
+      :pe: ami-ca32efa3
     :region: us-east-1
