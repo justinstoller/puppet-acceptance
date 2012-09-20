@@ -6,11 +6,21 @@ rescue LoadError
 end
 
 class VsphereHelper
+
+  TYPES = {
+    :vm       => 'VirtualMachine',
+    :template => 'VirtualMachine',
+    :rpool    => 'ResourcePool',
+    :folder   => 'Folder'
+  }
+
   def initialize vInfo = {}
     @connection = RbVmomi::VIM.connect :host     => vInfo[:server],
                                        :user     => vInfo[:user],
                                        :password => vInfo[:pass],
                                        :insecure => true
+
+    @collector = @connection.propertyCollector
   end
 
   def find_snapshot vm, snapname
@@ -32,49 +42,79 @@ class VsphereHelper
   # an easier wrapper around the horrid PropertyCollector interface,
   # necessary for searching VMs in all Datacenters that may be nested
   # within folders of arbitrary depth
-  # retuns an array of VirtualMachine ManagedObjects
-  def find_vms names, connection = @connection
-    names = names.is_a?(Array) ? names : [ names ]
-    containerView = get_base_vm_container_from connection
-    propertyCollector = connection.propertyCollector
+  # usage: find :template, :name => [ 'Debian-6-64-PE', 'Debian-6-32-PE' ]
+  # retuns an array of ManagedObjects with those properties
+  def find supplied_type, properties_hash,
+           connection = @connection, collector = @collector
 
-    objectSet = [{
-      :obj => containerView,
-      :skip => true,
-      :selectSet => [ RbVmomi::VIM::TraversalSpec.new({
-          :name => 'gettingTheVMs',
-          :path => 'view',
-          :skip => false,
-          :type => 'ContainerView'
-      }) ]
-    }]
+    properties_hash['config.template'] = true if supplied_type == :template
+    type = TYPES[supplied_type] ? TYPES[supplied_type] : supplied_type
 
-    propSet = [{
-      :pathSet => [ 'name' ],
-      :type => 'VirtualMachine'
-    }]
+    properties_array = properties_hash.keys
+    container_view = get_container_view_for type, connection
 
-    results = propertyCollector.RetrievePropertiesEx({
-      :specSet => [{
-        :objectSet => objectSet,
-        :propSet   => propSet
-      }],
-      :options => { :maxObjects => nil }
-    })
+    traversal = container_traversal
+    object_set = [ object_spec( container_view, traversal ) ]
 
-    vms = []
-    results.objects.each do |result|
-      vms << result.obj if names.include?(result.propSet.first.val)
-    end
-    vms
+    prop_set = [{ :pathSet => properties_array,
+                 :type    => type               }]
+
+    filter = filter_spec object_set, prop_set
+
+    get_objects_with properties_hash, filter
   end
 
-  def get_base_vm_container_from connection
+  def filter_spec object_set, prop_set
+    {
+      :specSet => [{
+        :objectSet => object_set,
+        :propSet   => prop_set
+      }],
+      :options => { :maxObjects => nil }
+    }
+  end
+
+  def container_traversal
+    RbVmomi::VIM::TraversalSpec.new({
+        :name => 'gettingAllTheGoods',
+        :path => 'view',
+        :skip => false,
+        :type => 'ContainerView'
+    })
+  end
+
+  def object_spec object, traversal
+    selectSet = [ traversal ].flatten
+    {
+      :obj => object,
+      :skip => true,
+      :selectSet => selectSet
+    }
+  end
+
+  def get_objects_with properties, filter, collector = @collector
+    # this is ugly, resource intensive and slow
+    # but it's faster because I left out the Oxford comma
+    results = collector.RetrievePropertiesEx( filter )
+
+    objects = []
+    results.objects.each do |result|
+      properties_array.each do |property|
+        if properties_hash[property].include?(result.propSet.first.val)
+          objects << result.obj
+        end
+      end
+    end
+    objects.uniq
+  end
+
+  def get_container_view_for types, connection = @connection
+    types_array = [ types ].flatten
     viewManager = connection.serviceContent.viewManager
     viewManager.CreateContainerView({
       :container => connection.serviceContent.rootFolder,
       :recursive => true,
-      :type      => [ 'VirtualMachine' ]
+      :type      => types_array
     })
   end
 end
