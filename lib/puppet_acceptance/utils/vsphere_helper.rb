@@ -5,6 +5,26 @@ rescue LoadError
   fail_test "Unable to load RbVmomi, please ensure its installed"
 end
 
+# This class is instantiated through the constructor ::connect
+# with a hash of vSphere login info.
+#
+# The return instance has a connection to vSphere and implements
+# #find_snapshots_for
+# #find
+# #clone
+# #wait_for
+# #disconnect
+# #get_vnc_data
+#
+# It also uses the relatively private (need to finalize this)
+# helpers:
+# #search_child_snaps
+# #object_spec
+# #filter_spec
+# #container_traversal
+# #get_objects_with
+# #get_container_view_for
+#
 class VsphereHelper
 
   TYPES = {
@@ -13,6 +33,10 @@ class VsphereHelper
     :rpool    => 'ResourcePool',
     :folder   => 'Folder'
   }
+
+  def self.connect vInfo
+    new vInfo
+  end
 
   def initialize vInfo = {}
     @connection = RbVmomi::VIM.connect :host     => vInfo[:server],
@@ -39,15 +63,86 @@ class VsphereHelper
     snapshot
   end
 
+
+  #######################################################################
+  ##   Begin culled script from hack session
+  ######################################################################
+  ## template     = find template
+  ## folder       = find 'AcceptanceTest'
+  ## resourcePool = find 'AcceptanceTest'
+  ## tasks        = []
+
+  def clone template, target
+    ## # start deploying each VM from template
+    ## tasks << template.CloneVM_Task({
+    ##   :folder => folder,
+    ##   :name   => 'new-name',
+    ##   :spec   => RbVmomi::VIM::VirtualMachineCloneSpec.new({
+    ##     :config =>      RbVmomi::VIM::VirtualMachineConfigSpec.new({
+    ##       # hardware specs   OPTIONAL!!
+    ##     })
+    ##     :customization => # OPTIONAL AND WON'T BE USED
+    ##     :location => RbVmomi::VIM::VirtualMachineRelocateSpec.new({
+    ##       # I believe this will be the only parameter required
+    ##       # (and that a hash will do here...)
+    ##       # http://pubs.vmware.com/vsphere-50/topic/com.vmware.wssdk.apiref.doc_50/vim.vm.RelocateSpec.html
+    ##       :pool => resourcePool
+    ##     }),
+    ##     :powerOn => true,
+    ##     :template => false,
+    ##     :snapshot => # OPTIONAL AND WON'T BE USED
+    ##   })
+    ## })
+  end
+
+  def wait_for tasks
+    ## # get updates about the status of each VM
+    ## objectSet = tasks.map {|t| { :obj => t } }
+    ## filter = vim.propertyCollector.CreateFilter(
+    ##   spec: {
+    ##     propSet: [{ type: 'Task', all: false, pathSet: ['info.state']}],
+    ##     objectSet: objectSet
+    ##   },
+    ##   partialUpdates: false
+    ## )
+    ## ver = ''
+    ## states = []
+
+    ## # block until VMs are finished deploying
+    ## while states.length < tasks.length
+    ##   tasks.each do |task|
+    ##     result = vim.propertyCollector.WaitForUpdates(version: ver)
+    ##     ver = result.version
+    ##     if ['success', 'error'].member? task.info.state
+    ##       states << { :name => 'iHaveNoIdeaHowToGetThis',
+    ##                   :state => task.info.state             }
+    ##     end
+    ##   end
+    ## end
+    ## filter.DestroyPropertyFilter
+
+    ## errored_hosts = states.select {|host| host[:state] == 'error' }
+
+    ## # fail if we weren't successful
+    ## unless errored_hosts.empty?
+    ##   raise "Failed to provision VMs: #{errored_hosts.map {|h| h[:name] }.join}"
+    ## end
+  end
+  #######################################################################
+  ##   End culled script from hack session
+  ######################################################################
+
+
   # an easier wrapper around the horrid PropertyCollector interface,
   # necessary for searching VMs in all Datacenters that may be nested
   # within folders of arbitrary depth
-  # usage: find :template, :name => [ 'Debian-6-64-PE', 'Debian-6-32-PE' ]
+  # usage: find :template, 'name' => [ 'Debian-6-64-PE', 'Debian-6-32-PE' ]
   # retuns an array of ManagedObjects with those properties
   def find supplied_type, properties_hash,
            connection = @connection, collector = @collector
 
     properties_hash['config.template'] = true if supplied_type == :template
+    properties_hash['config.template'] = false if supplied_type == :vm
     type = TYPES[supplied_type] ? TYPES[supplied_type] : supplied_type
 
     properties_array = properties_hash.keys

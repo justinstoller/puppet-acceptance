@@ -1,7 +1,7 @@
 test_name "Revert VMs"
 
   snap = options[:snapshot] || options[:type]
-  snap = 'git' if options[:type] == 'gem'  # Sweet, sweet consistency
+  snap = 'git' if options[:type] == 'gem'     # Sweet, sweet consistency
   snap = 'git' if options[:type] == 'manual'  # Sweet, sweet consistency
 
   if options[:vmrun] == 'vsphere'
@@ -46,16 +46,56 @@ test_name "Revert VMs"
     logger.notify "Connecting to vsphere at #{vsphere_credentials[:server]}" +
       " with credentials for #{vsphere_credentials[:user]}"
 
-    vsphere_helper = VsphereHelper.new vsphere_credentials
+    vSphere = VsphereHelper.connect vsphere_credentials
 
-    vm_names = hosts.map {|h| h.name }
-    vms = vsphere_helper.find_vms vm_names
-    vms.each do |vm|
+    # get the machine names of hosts that have them
+    template_names = hosts.map {|h| h[:machine] }.compact
+    # get those templates
+    templates = vSphere.find :template, 'name' => template_names
+    # get a list of hosts that we found templates for
+    templatized_hosts = hosts.select do |host|
+      templates.map {|t| t.name }.include? h[:vmname]
+    end
 
-      snapshot = vsphere_helper.find_snapshot(vm, snap) or
-        fail_test("Could not find snapshot #{snap} for vm #{vm.name}")
+    # people don't subtract arrays enough
+    legacy_hosts = hosts - templatized_hosts
 
-      logger.notify "Reverting #{vm.name} to snapshot #{snap}"
+    # revert legacy snapshotted vms if they exist
+    legacy_vms = vSphere.find :vm, 'name' => legacy_hosts.map {|h| h.name }
+
+    snapshotted_vms = {}
+    legacy_vms.each do |vm|
+      snapshotted_vms[vm.name] = vSphere.find_snapshot vm, snap
+      unless snapshotted_vms[vm.name]
+        fail_test "Could not find snapshot #{snap} for #{vm.name}"
+      end
+    end
+
+    # *something* may have gone wrong in our finding of templates and vms....
+    unless (snapshotted_vms.keys + templates.map {|t| h.name }).sort == hosts
+      fail_test "Whoaah, did you see that?!?!\n\n" +
+        "That sh was crazy, man. I'm outta here!\n\n\n\n"
+    end
+
+    target = {
+      :folder => 'AcceptanceTests',
+      :rpool  => 'AcceptanceTests',
+    }
+
+    cloning = []
+    newly_cloned_vms = []
+    templates.each do |template|
+      cloning, newly_cloned_vms << vSphere.clone template, target
+    end
+    vSphere.wait_for cloning
+
+    # And we're done cloning our VMs. I quit, this is where *ideally* we
+    # would create a new hostname for each host, reset the hostname, and
+    # munge our hosts...
+
+    # we do this last, if we have to, because snapshots are soooo 2011....
+    snapshotted_vms.each_pair do |vm, snapshot|
+      logger.notify "Reverting #{vm} to snapshot #{snap}"
       start = Time.now
       # This will block for each snapshot...
       # The code to issue them all and then wait until they are all done sucks
@@ -64,6 +104,7 @@ test_name "Revert VMs"
       time = Time.now - start
       logger.notify "Spent %f.2 seconds reverting" % time
     end
+
 
   elsif options[:vmrun] == 'fusion'
     require 'rubygems' unless defined?(Gem)
