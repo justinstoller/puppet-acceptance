@@ -19,7 +19,7 @@ module PuppetAcceptance
 
       @hosts =  []
       @config['HOSTS'].each_key do |name|
-        @hosts << PuppetAcceptance::Host.create(name, @options, @config)
+        @hosts << PuppetAcceptance::Hosts::Abstraction.create(name, @options, @config)
       end
     end
 
