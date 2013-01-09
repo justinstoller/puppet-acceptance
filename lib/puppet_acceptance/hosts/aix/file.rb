@@ -2,7 +2,6 @@ module PuppetAcceptance
   module Hosts
     module AIX
       module File
-        include PuppetAcceptance::CommandFactory
 
         def tmpfile(name)
           execute("rndnum=${RANDOM} && touch /tmp/#{name}.${rndnum} && echo /tmp/#{name}.${rndnum}")

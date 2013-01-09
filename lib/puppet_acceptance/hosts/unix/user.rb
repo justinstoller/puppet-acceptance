@@ -1,8 +1,14 @@
+begin
+  require 'puppet_acceptance/dsl/outcomes'
+rescue LoadError
+  require File.expand_path(
+    File.join(File.dirname(__FILE__), '..', '..', 'dsl', 'outcomes'))
+end
+
 module PuppetAcceptance
   module Hosts
     module Unix
       module User
-        include PuppetAcceptance::CommandFactory
 
         def user_list(&block)
           execute("getent passwd") do |result|

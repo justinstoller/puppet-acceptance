@@ -2,7 +2,6 @@ module PuppetAcceptance
   module Hosts
     module Unix
       module Exec
-        include PuppetAcceptance::CommandFactory
 
         def echo(msg, abs=true)
           (abs ? '/bin/echo' : 'echo') + " #{msg}"

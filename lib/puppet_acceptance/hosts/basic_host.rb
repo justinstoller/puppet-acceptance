@@ -124,33 +124,36 @@ module PuppetAcceptance
 
         # Why did we get this far if we're doing a dryrun?
         # if run_opts[:dry_run]
-          # result = Result.new
+        # # result = Result.new
         # else
-          # result = connection.execute(command_line, opts, output_callback)
-          # result.log( logger )
+        # # result = connection.execute(command_line, opts, output_callback)
+        # # result.log( logger )
 
-          # Move this to {PuppetAcceptance::DSL::Helpers#on}
-          # unless result.exit_code_in?(options[:acceptable_exit_codes] || [0])
-          #   limit = 10
-          #   raise "Host '#{self}' exited with #{result.exit_code} " +
-          #    "running:\n #{cmdline}\nLast #{limit} lines of output " +
-          #    "were:\n#{result.formatted_output(limit)}"
-          # end
+        # # Move this to {PuppetAcceptance::DSL::Helpers#on}
+        # # unless result.exit_code_in?(options[:acceptable_exit_codes] || [0])
+        # #   limit = 10
+        # #   raise "Host '#{self}' exited with #{result.exit_code} " +
+        # #    "running:\n #{cmdline}\nLast #{limit} lines of output " +
+        # #    "were:\n#{result.formatted_output(limit)}"
+        # # end
         # end
-        #
+
         # yield result if block_given?
-        #
+
         # result
       end
 
-      def exec command, opts={}
-        # I've always found this confusing
-        cmdline = command.cmd_line(self)
+      def execute command, opts={}, &block
+        if command.is_a? Command
+          command_line = command.cmd_line(self)
+        else
+          command_line = Command.new(command).cmd_line(self)
+        end
 
         if opts[:silent]
           output_callback = nil
         else
-          @logger.debug "\n#{self} $ #{cmdline}"
+          logger.debug "\n#{self} $ #{cmdline}"
           output_callback = logger.method(:host_output)
         end
 
@@ -158,19 +161,22 @@ module PuppetAcceptance
           # is this returning a result object?
           # the options should come at the end of the method signature (rubyism)
           # and they shouldn't be ssh specific
-          result = connection.execute(cmdline, opts, output_callback)
+          result = connection.execute(command_line, opts, output_callback)
 
           unless opts[:silent]
             # What?
-            result.log(@logger)
+            result.log(logger)
             # No, TestCase has the knowledge about whether its failed, checking acceptable
             # exit codes at the host level and then raising...
             # is it necessary to break execution??
-            unless result.exit_code_in?(options[:acceptable_exit_codes] || [0])
+            unless result.exit_code_in?(opts[:acceptable_exit_codes] || [0])
               limit = 10
               raise "Host '#{self}' exited with #{result.exit_code} running:\n #{cmdline}\nLast #{limit} lines of output were:\n#{result.formatted_output(limit)}"
             end
           end
+
+          yield result if block_given?
+
           # Danger, so we have to return this result?
           result
         end
