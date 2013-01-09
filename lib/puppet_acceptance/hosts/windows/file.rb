@@ -2,7 +2,6 @@ module PuppetAcceptance
   module Hosts
     module Windows
       module File
-        include PuppetAcceptance::CommandFactory
 
         def tmpfile(name)
           execute("cygpath -m $(mktemp -t #{name}.XXXXXX)")

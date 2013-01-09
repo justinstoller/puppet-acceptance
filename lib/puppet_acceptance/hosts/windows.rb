@@ -1,11 +1,4 @@
 begin
-  require 'puppet_acceptance/command_factory'
-rescue LoadError
-  require File.expand_path(
-    File.join(File.dirname(__FILE__), '..', 'command_factory'))
-end
-
-begin
   require 'puppet_acceptance/hosts/basic_host'
 rescue LoadError
   require File.expand_path(File.join(File.dirname(__FILE__), 'basic_host'))

@@ -63,12 +63,12 @@ module PuppetAcceptance
         if host.is_a? Array
           host.map { |h| on h, command, opts, &block }
         else
-          @result = host.exec(command, opts)
+          result = host.execute( command, opts )
 
           # Also, let additional checking be performed by the caller.
           yield self if block_given?
 
-          return @result
+          return result
         end
       end
 

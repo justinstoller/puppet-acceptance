@@ -1,8 +1,14 @@
+begin
+  require 'puppet_acceptance/dsl/outcomes'
+rescue LoadError
+  require File.expand_path(
+    File.join(File.dirname(__FILE__), '..', '..', 'dsl', 'outcomes'))
+end
+
 module PuppetAcceptance
   module Hosts
     module AIX
       module Group
-        include PuppetAcceptance::CommandFactory
 
         def group_list(&block)
           execute("lsgroup ALL") do |result|
