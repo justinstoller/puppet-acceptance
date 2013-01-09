@@ -43,6 +43,14 @@ module PuppetAcceptance
         base_defaults.merge(config['CONFIG']).merge(config['HOSTS'][name])
       end
 
+      def self.pe_defaults
+        { 'puppetpath' => '/etc/puppetlabs/puppet' }
+      end
+
+      def self.foss_defaults
+        { 'puppetpath' => '/etc/puppet' }
+      end
+
       def node_name
         # TODO: might want to consider caching here; not doing it for now
         # because I haven't thought through all of the possible scenarios
