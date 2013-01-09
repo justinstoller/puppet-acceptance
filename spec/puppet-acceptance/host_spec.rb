@@ -10,6 +10,8 @@ module PuppetAcceptance
       let(:options) { @options || Hash.new                  }
       let(:host)    { Abstraction.create 'name', options, config   }
 
+      before { SshConnection.stub(:connect).and_return( double.as_null_object ) }
+
       it 'creates a windows host given a windows config' do
         @platform = 'windows'
         expect( host ).to be_a_kind_of PuppetAcceptance::Hosts::Windows::Host

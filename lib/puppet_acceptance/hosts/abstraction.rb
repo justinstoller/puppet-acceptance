@@ -11,7 +11,7 @@ module PuppetAcceptance
     module Abstraction
 
       def self.create name, options, config
-        case config['HOSTS'][name]['platform']
+        my = case config['HOSTS'][name]['platform']
         when /windows/
           PuppetAcceptance::Hosts::Windows::Host.new name, options, config
         when /aix/
@@ -19,6 +19,10 @@ module PuppetAcceptance
         else
           PuppetAcceptance::Hosts::Unix::Host.new name, options, config
         end
+        my.connection = SshConnection.connect( my['ip'] || my.name,
+                                               my['user'],
+                                               my['ssh'] )
+        return my
       end
     end
   end
