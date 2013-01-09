@@ -2,7 +2,6 @@ module PuppetAcceptance
   module Hosts
     module Unix
       module File
-        include PuppetAcceptance::CommandFactory
 
         def tmpfile(name)
           execute("mktemp -t #{name}.XXXXXX")

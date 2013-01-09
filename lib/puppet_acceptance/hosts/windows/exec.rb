@@ -2,7 +2,6 @@ module PuppetAcceptance
   module Hosts
     module Windows
       module Exec
-        include PuppetAcceptance::CommandFactory
 
         ABS_CMD = 'c:\\\\windows\\\\system32\\\\cmd.exe'
         CMD = 'cmd.exe'
