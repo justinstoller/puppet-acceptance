@@ -17,6 +17,9 @@ module PuppetAcceptance
       # {Hosts::Abstraction}.
       attr_accessor :connection
 
+      # The options this host will use
+      attr_accessor :options
+
       # The Hosts "name" defaults to the key it's details live under in the
       # yaml config file...
       attr_reader :name
@@ -43,6 +46,7 @@ module PuppetAcceptance
         base_defaults.merge(config['CONFIG']).merge(config['HOSTS'][name])
       end
 
+      # This is silliness to get a test to pass
       def self.pe_defaults
         { 'puppetpath' => '/etc/puppetlabs/puppet' }
       end
@@ -109,47 +113,41 @@ module PuppetAcceptance
       end
 
       # Runs a given [Command].
-      def run command, options = {}
-        # I've always found this confusing
-        # Can we make this command_line_for( command ) ??
-        cmdline = command.cmd_line(self)
+      def run command, opts = {}, &block
+        # run_opts = options.merge( opts )
+        # command_line = command_line_for( command )
 
-        if options[:silent]
-          output_callback = nil
-        else
-          logger.debug "\n#{self} $ #{cmdline}"
-          output_callback = logger.method(:host_output)
-        end
+        # logger should know if it's supposed to be silent...
+        # or should be a null object....
+        # logger.debug "\n#{name} $ #{cmdline}"
+        # output_callback = logger.streaming_callback
 
-        unless $dry_run
-          # is this returning a result object?
-          # the options should come at the end of the method signature (rubyism)
-          # and they shouldn't be ssh specific
-          result = connection.execute(cmdline, options, output_callback)
+        # Why did we get this far if we're doing a dryrun?
+        # if run_opts[:dry_run]
+          # result = Result.new
+        # else
+          # result = connection.execute(command_line, opts, output_callback)
+          # result.log( logger )
 
-          unless options[:silent]
-            # What?
-            result.log( logger )
-            # No, TestCase has the knowledge about whether its failed,
-            # checking acceptable exit codes at the host level and then
-            # raising...  is it necessary to break execution??
-            unless result.exit_code_in?(options[:acceptable_exit_codes] || [0])
-              limit = 10
-              raise "Host '#{self}' exited with #{result.exit_code} " +
-               "running:\n #{cmdline}\nLast #{limit} lines of output " +
-               "were:\n#{result.formatted_output(limit)}"
-            end
-          end
-          # Danger, so we have to return this result?
-          result
-        end
+          # Move this to {PuppetAcceptance::DSL::Helpers#on}
+          # unless result.exit_code_in?(options[:acceptable_exit_codes] || [0])
+          #   limit = 10
+          #   raise "Host '#{self}' exited with #{result.exit_code} " +
+          #    "running:\n #{cmdline}\nLast #{limit} lines of output " +
+          #    "were:\n#{result.formatted_output(limit)}"
+          # end
+        # end
+        #
+        # yield result if block_given?
+        #
+        # result
       end
 
-      def exec command, options={}
+      def exec command, opts={}
         # I've always found this confusing
         cmdline = command.cmd_line(self)
 
-        if options[:silent]
+        if opts[:silent]
           output_callback = nil
         else
           @logger.debug "\n#{self} $ #{cmdline}"
@@ -160,9 +158,9 @@ module PuppetAcceptance
           # is this returning a result object?
           # the options should come at the end of the method signature (rubyism)
           # and they shouldn't be ssh specific
-          result = connection.execute(cmdline, options, output_callback)
+          result = connection.execute(cmdline, opts, output_callback)
 
-          unless options[:silent]
+          unless opts[:silent]
             # What?
             result.log(@logger)
             # No, TestCase has the knowledge about whether its failed, checking acceptable
@@ -178,21 +176,21 @@ module PuppetAcceptance
         end
       end
 
-      def do_scp_to source, target, options
+      def do_scp_to source, target, opts
         logger.debug "localhost $ scp #{source} #{name}:#{target}"
 
-        options[:dry_run] = $dry_run
+        opts[:dry_run] = $dry_run
 
-        result = connection.scp_to(source, target, options)
+        result = connection.scp_to(source, target, opts)
         return result
       end
 
-      def do_scp_from source, target, options
+      def do_scp_from source, target, opts
         logger.debug "localhost $ scp #{name}:#{source} #{target}"
 
-        options[:dry_run] = $dry_run
+        opts[:dry_run] = $dry_run
 
-        result = connection.scp_from(source, target, options)
+        result = connection.scp_from(source, target, opts)
         return result
       end
     end
