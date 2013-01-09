@@ -2,22 +2,13 @@ require 'spec_helper'
 
 module PuppetAcceptance
   module Hosts
-    describe Abstraction do
+    describe BasicHost do
       let :config do
         MockConfig.new({}, {'name' => {'platform' => @platform}}, @pe)
       end
 
       let(:options) { @options || Hash.new                  }
-      let(:host)    { Abstraction.create 'name', options, config   }
-
-      before { SshConnection.stub(:connect).and_return( double.as_null_object ) }
-
-      it 'creates a windows host given a windows config' do
-        @platform = 'windows'
-        expect( host ).to be_a_kind_of PuppetAcceptance::Hosts::Windows::Host
-      end
-
-      it( 'defaults to a unix host' ) { expect( host ).to be_a_kind_of PuppetAcceptance::Hosts::Unix::Host }
+      let(:host)    { BasicHost.new 'name', options, config   }
 
       it 'can be read like a hash' do
         expect { host['value'] }.to_not raise_error NoMethodError
@@ -80,7 +71,7 @@ module PuppetAcceptance
           overridden_config = MockConfig.new( {'puppetpath'=> '/i/do/what/i/want'},
                                               {'name' => {} },
                                                 false )
-          merged_host = Abstraction.create 'name', options, overridden_config
+          merged_host = BasicHost.new 'name', options, overridden_config
           expect( merged_host['puppetpath'] ).to be === '/i/do/what/i/want'
         end
 
@@ -90,7 +81,7 @@ module PuppetAcceptance
                                                 'puppetpath' => '/utter/awesomeness'}
                                               }, true )
 
-          merged_host = Abstraction.create 'name', options, overriding_config
+          merged_host = BasicHost.new 'name', options, overriding_config
           expect( merged_host['puppetpath'] ).to be === '/utter/awesomeness'
         end
       end
