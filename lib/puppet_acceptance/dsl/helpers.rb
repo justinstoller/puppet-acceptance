@@ -60,15 +60,26 @@ module PuppetAcceptance
           cmd_opts = opts[:environment] ? { 'ENV' => opts.delete(:environment) } : Hash.new
           command = Command.new(command.to_s, [], cmd_opts)
         end
+
         if host.is_a? Array
           host.map { |h| on h, command, opts, &block }
         else
-          result = host.execute( command, opts )
+          self.result = host.run( command, opts )
 
-          # Also, let additional checking be performed by the caller.
           yield self if block_given?
 
-          return result
+          unless opts[:silent]
+            result.log(logger)
+            unless result.exit_code_in?(opts[:acceptable_exit_codes] || [0])
+              limit = 10
+              fail_test "Host '#{host}' exited with #{result.exit_code} running:" +
+                "\n#{command.cmd_line(host)}\n" +
+                "Last #{limit} lines of output were:\n" +
+                "#{result.formatted_output(limit)}"
+            end
+          end
+
+          result
         end
       end
 

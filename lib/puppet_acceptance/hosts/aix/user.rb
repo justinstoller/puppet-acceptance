@@ -10,33 +10,43 @@ module PuppetAcceptance
     module AIX
       module User
 
-        def user_list(&block)
-          execute("lsuser ALL") do |result|
-            users = []
-            result.stdout.each_line do |line|
-              users << (line.match( /^([^:]+)/) or next)[1]
-            end
+        def user_list &block
+          users = []
+          result = run( "lsuser ALL" )
 
-            yield result if block_given?
-
-            users
+          result.stdout.each_line do |line|
+            users << (line.match( /^([^:]+)/) or next)[1]
           end
+
+          yield result if block_given?
+
+          users
         end
 
-        def user_get(name, &block)
-          execute("lsuser #{name}") do |result|
-            fail_test "failed to get user #{name}" unless result.stdout =~  /^#{name} id/
+        def user_get name, &block
+          result = run( "lsuser #{name}" )
+          fail_test "failed to get user #{name}" unless
+            result.stdout =~  /^#{name} id/
 
-            yield result if block_given?
-          end
+          yield result if block_given?
+
+          result.stdout.chomp
         end
 
-        def user_present(name, &block)
-          execute("if ! lsuser #{name}; then mkuser #{name}; fi", {}, &block)
+        def user_present name, &block
+          result = run( "if ! lsuser #{name}; then mkuser #{name}; fi" )
+
+          yield result if block_given?
+
+          result.stdout.chomp
         end
 
-        def user_absent(name, &block)
-          execute("if lsuser #{name}; then rmuser #{name}; fi", {}, &block)
+        def user_absent name, &block
+          result = run( "if lsuser #{name}; then rmuser #{name}; fi" )
+
+          yield result if block_given?
+
+          result.stdout.chomp
         end
       end
     end

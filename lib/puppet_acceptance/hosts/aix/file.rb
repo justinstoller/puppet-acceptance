@@ -3,15 +3,19 @@ module PuppetAcceptance
     module AIX
       module File
 
-        def tmpfile(name)
-          execute("rndnum=${RANDOM} && touch /tmp/#{name}.${rndnum} && echo /tmp/#{name}.${rndnum}")
+        def tmpfile name
+          run( "rndnum=${RANDOM} && " +
+                   "touch /tmp/#{name}.${rndnum} && " +
+                   "echo /tmp/#{name}.${rndnum}" ).stdout.chomp
         end
 
-        def tmpdir(name)
-          execute("rndnum=${RANDOM} && mkdir /tmp/#{name}.${rndnum} && echo /tmp/#{name}.${rndnum}")
+        def tmpdir name
+          run( "rndnum=${RANDOM} && " +
+                   "mkdir /tmp/#{name}.${rndnum} && " +
+                   "echo /tmp/#{name}.${rndnum}" ).stdout.chomp
         end
 
-        def path_split(paths)
+        def path_split paths
           paths.split(':')
         end
 
