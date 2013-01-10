@@ -2,6 +2,7 @@ require 'spec_helper'
 
 class ClassMixedWithDSLHelpers
   include PuppetAcceptance::DSL::Helpers
+  attr_accessor :result
 end
 
 describe ClassMixedWithDSLHelpers do
@@ -12,24 +13,28 @@ describe ClassMixedWithDSLHelpers do
       PuppetAcceptance::Command.should_receive( :new ).
         with( 'ls ~/.bin', [], {'ENV' => { :HOME => '/tmp/test_home' }} )
 
-      subject.on( host, 'ls ~/.bin', :environment => {:HOME => '/tmp/test_home' } )
+      subject.on( host,
+                  'ls ~/.bin',
+                  :silent => true,
+                  :environment => {:HOME => '/tmp/test_home' } )
     end
 
     it 'delegates to itself for each host passed' do
       hosts = [ double, double, double ]
 
       hosts.each_with_index do |host, i|
-        host.should_receive( :exec ).and_return( i )
+        host.should_receive( :run ).and_return( i )
       end
 
-      results = subject.on( hosts, 'ls' )
+      results = subject.on( hosts, 'ls', :silent => true )
       expect( results ).to be == [ 0, 1, 2 ]
     end
 
     it 'yields to a given block' do
       host = double.as_null_object
+      subject.result = double.as_null_object
 
-      subject.on host, 'ls' do |containing_class|
+      subject.on host, 'ls', :silent => true do |containing_class|
         expect( containing_class ).
           to be_an_instance_of( ClassMixedWithDSLHelpers )
       end
@@ -38,9 +43,9 @@ describe ClassMixedWithDSLHelpers do
     it 'returns the result of the action' do
       host = double.as_null_object
 
-      host.should_receive( :exec ).and_return( 'my_result' )
+      host.should_receive( :run ).and_return( 'my_result' )
 
-      expect( subject.on( host, 'ls' ) ).to be == 'my_result'
+      expect( subject.on( host, 'ls', :silent => true) ).to be == 'my_result'
     end
   end
 

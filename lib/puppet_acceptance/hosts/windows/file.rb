@@ -3,15 +3,15 @@ module PuppetAcceptance
     module Windows
       module File
 
-        def tmpfile(name)
-          execute("cygpath -m $(mktemp -t #{name}.XXXXXX)")
+        def tmpfile name
+          run("cygpath -m $(mktemp -t #{name}.XXXXXX)").stdout.chomp
         end
 
-        def tmpdir(name)
-          execute("cygpath -m $(mktemp -td #{name}.XXXXXX)")
+        def tmpdir name
+          run("cygpath -m $(mktemp -td #{name}.XXXXXX)").stdout.chomp
         end
 
-        def path_split(paths)
+        def path_split paths
           paths.split(';')
         end
       end
