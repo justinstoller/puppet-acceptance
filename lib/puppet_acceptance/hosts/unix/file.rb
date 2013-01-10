@@ -3,15 +3,15 @@ module PuppetAcceptance
     module Unix
       module File
 
-        def tmpfile(name)
-          execute("mktemp -t #{name}.XXXXXX")
+        def tmpfile name
+          run("mktemp -t #{name}.XXXXXX").stdout.chomp
         end
 
-        def tmpdir(name)
-          execute("mktemp -td #{name}.XXXXXX")
+        def tmpdir name
+          run("mktemp -td #{name}.XXXXXX").stdout.chomp
         end
 
-        def path_split(paths)
+        def path_split paths
           paths.split(':')
         end
 

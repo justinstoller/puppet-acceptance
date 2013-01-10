@@ -3,11 +3,11 @@ module PuppetAcceptance
     module Unix
       module Exec
 
-        def echo(msg, abs=true)
+        def echo msg, abs = true
           (abs ? '/bin/echo' : 'echo') + " #{msg}"
         end
 
-        def touch(file, abs=true)
+        def touch file, abs = true
           (abs ? '/bin/touch' : 'touch') + " #{file}"
         end
 

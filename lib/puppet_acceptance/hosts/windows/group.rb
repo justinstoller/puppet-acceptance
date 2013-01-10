@@ -10,33 +10,49 @@ module PuppetAcceptance
     module Windows
       module Group
 
-        def group_list(&block)
-          execute('cmd /c echo "" | wmic group where localaccount="true" get name /format:value') do |result|
-            groups = []
-            result.stdout.each_line do |line|
-              groups << (line.match(/^Name=([\w ]+)/) or next)[1]
-            end
+        def group_list &block
+          groups = []
 
-            yield result if block_given?
+          result = run( 'cmd /c echo "" | ' +
+                   'wmic group where localaccount="true" ' +
+                   'get name /format:value' )
 
-            groups
+          result.stdout.each_line do |line|
+            groups << (line.match(/^Name=([\w ]+)/) or next)[1]
           end
+
+          yield result if block_given?
+
+          groups
         end
 
-        def group_get(name, &block)
-          execute("net localgroup \"#{name}\"") do |result|
-            fail_test "failed to get group #{name}" unless result.stdout =~ /^Alias name\s+#{name}/
+        def group_get name, &block
+          result = run("net localgroup \"#{name}\"")
 
-            yield result if block_given?
-          end
+          fail_test "failed to get group #{name}" unless
+            result.stdout =~ /^Alias name\s+#{name}/
+
+          yield result if block_given?
+
+          res.stdout.chomp
         end
 
-        def group_present(name, &block)
-          execute("net localgroup /add \"#{name}\"", {:acceptable_exit_codes => [0,2]}, &block)
+        def group_present name, &block
+          result = run( "net localgroup /add \"#{name}\"",
+                        {:acceptable_exit_codes => [0,2]} )
+
+          yield result if block_given?
+
+          result.stdout.chomp
         end
 
-        def group_absent(name, &block)
-          execute("net localgroup /delete \"#{name}\"", {:acceptable_exit_codes => [0,2]}, &block)
+        def group_absent name, &block
+          result = run( "net localgroup /delete \"#{name}\"",
+                        {:acceptable_exit_codes => [0,2]} )
+
+          yield result if block_given?
+
+          result.stdout.chomp
         end
       end
     end
