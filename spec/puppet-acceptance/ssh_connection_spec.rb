@@ -1,5 +1,4 @@
 require 'spec_helper'
-require 'net/ssh'
 
 module PuppetAcceptance
   describe SshConnection do
