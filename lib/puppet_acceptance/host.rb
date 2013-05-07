@@ -6,6 +6,14 @@
   end
 end
 
+%w(abstraction).each do |host|
+  begin
+    require "puppet_acceptance/hosts/#{host}"
+  rescue LoadError
+    require File.expand_path(File.join(File.dirname(__FILE__), 'hosts', host))
+  end
+end
+
 module PuppetAcceptance
   class Host
 
@@ -153,8 +161,4 @@ module PuppetAcceptance
       return result
     end
   end
-
-  require File.expand_path(File.join(File.dirname(__FILE__), 'host/windows'))
-  require File.expand_path(File.join(File.dirname(__FILE__), 'host/unix'))
-  require File.expand_path(File.join(File.dirname(__FILE__), 'host/aix'))
 end
