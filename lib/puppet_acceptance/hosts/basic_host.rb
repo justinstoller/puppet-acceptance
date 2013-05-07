@@ -10,6 +10,27 @@ module PuppetAcceptance
     class BasicHost
       include PuppetAcceptance::DSL::Wrappers
 
+      # This class providers array syntax for using puppet --configprint on a host
+      class PuppetConfigReader
+        def initialize(host, command)
+          @host = host
+          @command = command
+        end
+
+        def [](k)
+          cmd = PuppetCommand.new(@command, "--configprint #{k.to_s}")
+          @host.exec(cmd).stdout.strip
+        end
+      end
+
+      # Returning our PuppetConfigReader here allows users of the Host
+      # class to do things like `host.puppet['vardir']` to query the
+      # 'main' section or, if they want the configuration for a
+      # particular run type, `host.puppet('agent')['vardir']`
+      def puppet(command="")
+        PuppetConfigReader.new(self, command)
+      end
+
       # The logger this host will use for messages
       attr_accessor :logger
 

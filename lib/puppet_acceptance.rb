@@ -16,7 +16,7 @@ module PuppetAcceptance
   require 'puppet_acceptance/dsl'
   #
   # Our Host Abstraction Layer
-  require 'puppet_acceptance/host'
+  require 'puppet_acceptance/hosts'
   #
   # How we manage connecting to hosts and hypervisors
   #require 'puppet_acceptance/connectivity'
