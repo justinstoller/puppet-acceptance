@@ -1,9 +1,7 @@
-%w( host dsl ).each do |lib|
-  begin
-    require "puppet_acceptance/#{lib}"
-  rescue LoadError
-    require File.expand_path(File.join(File.dirname(__FILE__), lib))
-  end
+begin
+  require "puppet_acceptance/dsl"
+rescue LoadError
+  require File.expand_path(File.join(File.dirname(__FILE__), 'dsl'))
 end
 
 require 'tempfile'

@@ -12,13 +12,14 @@ module PuppetAcceptance
 
       def self.create name, options, config
         my = case config['HOSTS'][name]['platform']
-        when /windows/
-          PuppetAcceptance::Hosts::Windows::Host.new name, options, config
-        when /aix/
-          PuppetAcceptance::Hosts::AIX::Host.new name, options, config
-        else
-          PuppetAcceptance::Hosts::Unix::Host.new name, options, config
-        end
+             when /windows/
+               PuppetAcceptance::Hosts::Windows::Host.new name, options, config
+             when /aix/
+               PuppetAcceptance::Hosts::AIX::Host.new name, options, config
+             else
+               PuppetAcceptance::Hosts::Unix::Host.new name, options, config
+             end
+
         my.connection = SshConnection.connect( my['ip'] || my.name,
                                                my['user'],
                                                my['ssh'] )
