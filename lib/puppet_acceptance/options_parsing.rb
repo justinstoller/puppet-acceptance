@@ -44,17 +44,8 @@ module PuppetAcceptance
 
         @defaults[:type] = nil
         opts.on '--type TYPE',
-                'MANDATORY',
                 'Select testing scenario type',
                 '(eg. pe, git)' do |type|
-          setupdir = File.expand_path(
-                       File.join(
-                         File.dirname(__FILE__), '..', '..', 'setup', type))
-
-          unless File.directory?(setupdir) then
-            raise "Sorry, #{type} is not a known setup type!"
-            exit 1
-          end
           @options[:type] = type
         end
 

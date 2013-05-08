@@ -88,8 +88,9 @@ module PuppetAcceptance
                       "#{puppet_acceptance_root}/setup/pe_uninstall/#{@options[:uninstall]}"] })
 
       else
+        setupdir = "#{puppet_acceptance_root}/setup/#{@options[:type]}"
         setup_opts = build_suite_options("early")
-        setup_opts[:tests] << "#{puppet_acceptance_root}/setup/#{@options[:type]}"
+        setup_opts[:tests] << setupdir if File.exists?( setupdir )
         setup_opts[:tests] << "#{puppet_acceptance_root}/setup/post"
       end
       setup_opts
