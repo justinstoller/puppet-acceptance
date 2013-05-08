@@ -329,8 +329,6 @@ module PuppetAcceptance
       end
       @options[:install].compact!
 
-      raise ArgumentError.new("Must specify the --type argument") unless @options[:type]
-
       @options[:tests] << 'tests' if @options[:tests].empty?
 
       @options
