@@ -60,15 +60,13 @@ module PuppetAcceptance
       if @options[:noinstall]
         setup_opts = @options.merge({
           :random => false,
-          :tests  => ["#{puppet_acceptance_root}/setup/early",
-                      "#{puppet_acceptance_root}/setup/post"] })
+          :tests  => ["#{puppet_acceptance_root}/setup/early" ] })
 
       elsif @options[:upgrade]
         setup_opts = @options.merge({
           :random => false,
           :tests  => ["#{puppet_acceptance_root}/setup/early",
-                      "#{puppet_acceptance_root}/setup/pe_upgrade",
-                      "#{puppet_acceptance_root}/setup/post"] })
+                      "#{puppet_acceptance_root}/setup/pe_upgrade" ] })
 
       elsif @options[:type] == 'cp_pe'
         setup_opts = @options.merge({
@@ -90,7 +88,6 @@ module PuppetAcceptance
       else
         setup_opts = build_suite_options("early")
         setup_opts[:tests] << "#{puppet_acceptance_root}/setup/#{@options[:type]}"
-        setup_opts[:tests] << "#{puppet_acceptance_root}/setup/post"
       end
       setup_opts
     end
