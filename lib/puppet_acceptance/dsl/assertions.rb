@@ -76,10 +76,10 @@ module PuppetAcceptance
         end
 
         # Exercise assertions about output
-        assert_equal our_output, (result.nil? ? '' : result.output), msg
-        assert_equal our_out,    (result.nil? ? '' : result.stdout),
+        assert_match Regexp.quote(our_output), (result.nil? ? '' : result.output), msg
+        assert_match Regexp.quote(our_out),    (result.nil? ? '' : result.stdout),
           'The contents of STDOUT did not match expectations'
-        assert_equal our_err,    (result.nil? ? '' : result.stderr),
+        assert_match Regexp.quote(our_err),    (result.nil? ? '' : result.stderr),
           'The contents of STDERR did not match expectations'
       end
     end
