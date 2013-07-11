@@ -1,36 +1,17 @@
 module PuppetAcceptance
   class CLI
-    def initialize
-      @options = PuppetAcceptance::Options.parse_args
-      @logger = PuppetAcceptance::Logger.new(@options)
+    def initialize( command_line_args = ARGV.dup )
+      @options = PuppetAcceptance::Options.parse_args( command_line_args )
+      @logger  = PuppetAcceptance::Logger.new(@options)
       @options[:logger] = @logger
 
-      if not @options[:config] 
-        report_and_raise(@logger, RuntimeError.new("Argh!  There is no default for Config, specify one (-c or --config)!"), "CLI: initialize") 
-      end
-
-      @logger.debug("Options")
-      @options.each do |opt, val|
-        if val and val != [] 
-          @logger.debug("\t#{opt.to_s}:")
-          if val.kind_of?(Array)
-            val.each do |v|
-              @logger.debug("\t\t#{v.to_s}")
-            end
-          else
-            @logger.debug("\t\t#{val.to_s}")
-          end
-        end
-      end
 
       @config = PuppetAcceptance::TestConfig.new(@options[:config], @options)
 
-      #add additional paths to the LOAD_PATH
-      if not @options[:load_path].empty?
-        @options[:load_path].each do |path|
-          $LOAD_PATH << File.expand_path(path)
-        end
+      @options[:load_path].each do |path|
+        $LOAD_PATH << File.expand_path(path)
       end
+
       @options[:helper].each do |helper|
         require File.expand_path(helper)
       end

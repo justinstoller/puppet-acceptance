@@ -28,17 +28,169 @@ module PuppetAcceptance
       :add_el_extras => false
     }
 
-    def self.options
-      return @options
+    def self.parse_args( arguments )
+      instance = new( arguments )
+      instance.register_cli_options!
+      instance.parse_args!
+      instance.merge_all_options!
+      instance.munge_options!
+      instance.validate_options!
+      instance.list_options
     end
 
-    def self.parse_args
-      return @options if @options
+    def initialize( arguments )
+      @arguments = arguments
+      @no_args   = arguments.empty?
+      @options   = {}
+    end
 
-      @no_args = argv.empty? ? true : false
+    def parse_args( args = @arguments )
+      optparse.parse( args )
+    end
 
-      @options = {}
+    def munge_options!( options = @options )
+      # we have use the @no_args var because optparse consumes argv as it parses
+      # so we have to check the value of argv at the begining of the method,
+      # let the options be set, then output usage.
+      if options[:print_help] or @no_args
+        puts optparse
+        exit
+      end
 
+      options[:helper]     = munge_possible_arg_list( options[:helper]     )
+      options[:load_path]  = munge_possible_arg_list( options[:load_path]  )
+      options[:tests]      = munge_possible_arg_list( options[:tests]      )
+      options[:pre_suite]  = munge_possible_arg_list( options[:pre_suite]  )
+      options[:post_suite] = munge_possible_arg_list( options[:post_suite] )
+      options[:install]    = munge_possible_arg_list( options[:install]    )
+      options[:modules]    = munge_possible_arg_list( options[:modules]    )
+
+      options[:install] = parse_install_options( options[:install] )
+
+      options[:pre_suite]  = file_list( options[:pre_suite]  )
+      options[:post_suite] = file_list( options[:post_suite] )
+      options[:tests]      = file_list( options[:tests]      )
+
+      options
+    end
+
+    def merge_all_options!( options = @options )
+      options_from_file = parse_options_file( options[:options_file] )
+
+      # merge in the options that we read from the file
+      options = options_from_file.merge( options )
+      # merge in defaults
+      options = DEFAULTS.merge( options )
+
+      options
+    end
+
+    def list_options
+      @logger.debug("Options")
+      @options.each do |opt, val|
+        if val and val != []
+          @logger.debug("\t#{opt.to_s}:")
+          if val.kind_of?(Array)
+            val.each do |v|
+              @logger.debug("\t\t#{v.to_s}")
+            end
+          else
+            @logger.debug("\t\t#{val.to_s}")
+          end
+        end
+      end
+    end
+
+    def validate_options!( options = @options )
+      if options[:type] !~ /(pe)|(git)/
+        raise ArgumentError.new("--type must be one of pe or git, not '#{options[:type]}'")
+      end
+
+      unless ["fast", "stop", nil].include?(options[:fail_mode])
+        raise ArgumentError.new("--fail-mode must be one of fast, stop")
+      end
+
+      unless options[:config]
+        report_and_raise(
+          @logger,
+          RuntimeError.new("Argh!  There is no default for Config, specify one (-c or --config)!"),
+          "CLI: initialize")
+      end
+
+      unless File.exists?( options[:options_file])
+        raise ArgumentError, "specified options file '#{options[:options_file]}' does not exist!"
+      end
+    end
+
+    # returns deinitely_a_list :)
+    def munge_possible_arg_lists( possibly_a_list )
+      case possibly_a_list
+      when Array
+        return possibly_a_list
+      when String
+        return possibly_a_list.split( ',' )
+      else
+        return Array( possibly_a_list )
+      end
+    end
+
+    def parse_options_file(options_file_path)
+      options_file_path = File.expand_path(options_file_path)
+      # this eval will allow the specified options file to have access to our
+      #  scope.  it is important that the variable 'options_file_path' is
+      #  accessible, because some existing options files (e.g. puppetdb) rely on
+      #  that variable to determine their own location (for use in 'require's, etc.)
+      result = eval(File.read(options_file_path))
+      unless result.is_a? Hash
+        raise ArgumentError, "options file '#{options_file_path}' must return a hash!"
+      end
+
+      result
+    end
+
+    # What the hell is this about?
+    def repo?
+      GITREPO
+    end
+
+    def parse_install_options(install_opts)
+      install_opts.map! { |opt|
+        case opt
+          when /^puppet\//
+            opt = "#{GITREPO}/puppet.git##{opt.split('/', 2)[1]}"
+          when /^facter\//
+            opt = "#{GITREPO}/facter.git##{opt.split('/', 2)[1]}"
+          when /^hiera\//
+            opt = "#{GITREPO}/hiera.git##{opt.split('/', 2)[1]}"
+          when /^hiera-puppet\//
+            opt = "#{GITREPO}/hiera-puppet.git##{opt.split('/', 2)[1]}"
+        end
+        opt
+      }
+      install_opts
+    end
+
+    def file_list(paths)
+      files = []
+      if not paths.empty?
+        paths.each do |root|
+          if File.file? root then
+            files << root
+          else
+            discover_files = Dir.glob(
+              File.join(root, "**/*.rb")
+            ).select { |f| File.file?(f) }
+            if discover_files.empty?
+              raise ArgumentError, "empty directory used as an option (#{root})!"
+            end
+            files += discover_files
+          end
+        end
+      end
+      files
+    end
+
+    def register_cli_options!
       optparse = OptionParser.new do|opts|
         # set a banner
         opts.banner = "usage: #{file.basename($0)} [options...]"
@@ -184,117 +336,6 @@ module PuppetAcceptance
           @options[:print_help] = yes
         end
       end
-
-      optparse.parse!
-
-      # we have use the @no_args var because optparse consumes argv as it parses
-      # so we have to check the value of argv at the begining of the method,
-      # let the options be set, then output usage.
-      if options[:print_help] or @no_args
-        puts optparse
-        exit
-      end
-
-      @options[:helper]     = munge_possible_arg_list( @options[:helper]     )
-      @options[:load_path]  = munge_possible_arg_list( @options[:load_path]  )
-      @options[:tests]      = munge_possible_arg_list( @options[:tests]      )
-      @options[:pre_suite]  = munge_possible_arg_list( @options[:pre_suite]  )
-      @options[:post_suite] = munge_possible_arg_list( @options[:post_suite] )
-      @options[:install]    = munge_possible_arg_list( @options[:install]    )
-      @options[:modules]    = munge_possible_arg_list( @options[:modules]    )
-
-      @options[:install] = parse_install_options( @options[:install] )
-
-      @options[:pre_suite]  = file_list( @options[:pre_suite]  )
-      @options[:post_suite] = file_list( @options[:post_suite] )
-      @options[:tests]      = file_list( @options[:tests]      )
-
-      @options_from_file = parse_options_file( @options[[:options_file] )
-
-      # merge in the options that we read from the file
-      @options = @options_from_file.merge(@options)
-      # merge in defaults
-      @options = DEFAULTS.merge(@options)
-
-      if @options[:type] !~ /(pe)|(git)/
-        raise ArgumentError.new("--type must be one of pe or git, not '#{@options[:type]}'")
-      end
-
-      unless ["fast", "stop", nil].include?(@options[:fail_mode])
-        raise ArgumentError.new("--fail-mode must be one of fast, stop")
-      end
-
-      @options
-    end
-
-    # returns deinitely_a_list :)
-    def self.munge_possible_arg_lists( possibly_a_list )
-      case possibly_a_list
-      when Array
-        return possibly_a_list
-      when String
-        return possibly_a_list.split( ',' )
-      else
-        return Array( possibly_a_list )
-      end
-    end
-
-    def self.parse_options_file(options_file_path)
-      options_file_path = File.expand_path(options_file_path)
-      unless File.exists?(options_file_path)
-        raise ArgumentError, "specified options file '#{options_file_path}' does not exist!"
-      end
-      # this eval will allow the specified options file to have access to our
-      #  scope.  it is important that the variable 'options_file_path' is
-      #  accessible, because some existing options files (e.g. puppetdb) rely on
-      #  that variable to determine their own location (for use in 'require's, etc.)
-      result = eval(File.read(options_file_path))
-      unless result.is_a? Hash
-        raise ArgumentError, "options file '#{options_file_path}' must return a hash!"
-      end
-
-      result
-    end
-
-    def self.repo?
-      GITREPO
-    end
-
-    def self.parse_install_options(install_opts)
-      install_opts.map! { |opt|
-        case opt
-          when /^puppet\//
-            opt = "#{GITREPO}/puppet.git##{opt.split('/', 2)[1]}"
-          when /^facter\//
-            opt = "#{GITREPO}/facter.git##{opt.split('/', 2)[1]}"
-          when /^hiera\//
-            opt = "#{GITREPO}/hiera.git##{opt.split('/', 2)[1]}"
-          when /^hiera-puppet\//
-            opt = "#{GITREPO}/hiera-puppet.git##{opt.split('/', 2)[1]}"
-        end
-        opt
-      }
-      install_opts
-    end
-
-    def self.file_list(paths)
-      files = []
-      if not paths.empty?
-        paths.each do |root|
-          if File.file? root then
-            files << root
-          else
-            discover_files = Dir.glob(
-              File.join(root, "**/*.rb")
-            ).select { |f| File.file?(f) }
-            if discover_files.empty?
-              raise ArgumentError, "empty directory used as an option (#{root})!"
-            end
-            files += discover_files
-          end
-        end
-      end
-      files
     end
   end
 end
