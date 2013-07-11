@@ -1,6 +1,6 @@
-module puppetacceptance
-  class options
-    gitrepo = 'git://github.com/puppetlabs'
+module PuppetAcceptance
+  class Options
+    GITREPO = 'git://github.com/puppetlabs'
 
     DEFAULTS = {
       :config => nil,
@@ -32,54 +32,12 @@ module puppetacceptance
       return @options
     end
 
-    def self.repo?
-      gitrepo
-    end
-
-    def self.parse_install_options(install_opts)
-      install_opts.map! { |opt|
-        case opt
-          when /^puppet\//
-            opt = "#{gitrepo}/puppet.git##{opt.split('/', 2)[1]}"
-          when /^facter\//
-            opt = "#{gitrepo}/facter.git##{opt.split('/', 2)[1]}"
-          when /^hiera\//
-            opt = "#{gitrepo}/hiera.git##{opt.split('/', 2)[1]}"
-          when /^hiera-puppet\//
-            opt = "#{gitrepo}/hiera-puppet.git##{opt.split('/', 2)[1]}"
-        end
-        opt
-      }
-      install_opts
-    end
-
-    def self.file_list(paths)
-      files = []
-      if not paths.empty?
-        paths.each do |root|
-          if File.file? root then
-            files << root
-          else
-            discover_files = Dir.glob(
-              File.join(root, "**/*.rb")
-            ).select { |f| File.file?(f) }
-            if discover_files.empty?
-              raise ArgumentError, "empty directory used as an option (#{root})!"
-            end
-            files += discover_files
-          end
-        end
-      end
-      files
-    end
-
     def self.parse_args
       return @options if @options
 
       @no_args = argv.empty? ? true : false
 
       @options = {}
-      @options_from_file = {}
 
       optparse = OptionParser.new do|opts|
         # set a banner
@@ -94,7 +52,7 @@ module puppetacceptance
                 'read options from file',
                 'this should evaluate to a ruby hash.',
                 'cli optons are given precedence.' do |file|
-          @options_from_file = parse_options_file file
+          @options[:options_file] = file
         end
 
         opts.on '--type type',
@@ -106,75 +64,28 @@ module puppetacceptance
 
         opts.on '--helper path/to/script',
                 'ruby file evaluated prior to tests',
-                '(a la spec_helper)' do |script|
-          @options[:helper] = []
-          if script.is_a?(array)
-            @options[:helper] += script
-          elsif script =~ /,/
-            @options[:helper] += script.split(',')
-          else
-            @options[:helper] << script
-          end
+                '(a la spec_helper)' do |one_or_more_helpers|
+          @options[:helper] = one_or_more_helpers
         end
 
         opts.on  '--load-path /path/to/dir,/additional/dir/paths',
-                 'add paths to load_path'  do |value|
-          @options[:load_path] = []
-          if value.is_a?(array)
-            @options[:load_path] += value
-          elsif value =~ /,/
-            @options[:load_path] += value.split(',')
-          else
-            @options[:load_path] << value
-          end
+                 'add paths to load_path'  do |one_or_more_directories|
+          @options[:load_path] = one_or_more_directories
         end
 
         opts.on  '-t', '--tests /path/to/dir,/additiona/dir/paths,/path/to/file.rb',
-                 'execute tests from paths and files' do |value|
-          @options[:tests] = []
-          if value.is_a?(array)
-            @options[:tests] += value
-          elsif value =~ /,/
-            @options[:tests] += value.split(',')
-          else
-            @options[:tests] << value
-          end
-          @options[:tests] = file_list(@options[:tests])
-          if @options[:tests].empty?
-            raise ArgumentError, "no tests to run!"
-          end
+                 'execute tests from paths and files' do |one_or_more_tests|
+          @options[:tests] = one_or_more_tests
         end
 
         opts.on '--pre-suite /pre-suite/dir/path,/additional/dir/paths,/path/to/file.rb',
-                'path to project specific steps to be run before testing' do |value|
-          @options[:pre_suite] = []
-          if value.is_a?(array)
-            @options[:pre_suite] += value
-          elsif value =~ /,/
-            @options[:pre_suite] += value.split(',')
-          else
-            @options[:pre_suite] << value
-          end
-          @options[:pre_suite] = file_list(@options[:pre_suite])
-          if @options[:pre_suite].empty?
-            raise ArgumentError, "empty pre-suite!"
-          end
+                'path to project specific steps to be run before testing' do |one_or_more_pre_suites|
+          @options[:pre_suite] = one_or_more_pre_suites
         end
 
         opts.on '--post-suite /post-suite/dir/path,/optional/additonal/dir/paths,/path/to/file.rb',
-                'path to project specific steps to be run after testing' do |value|
-          @options[:post_suite] = []
-          if value.is_a?(array)
-            @options[:post_suite] += value
-          elsif value =~ /,/
-            @options[:post_suite] += value.split(',')
-          else
-            @options[:post_suite] << value
-          end
-          @options[:post_suite] = file_list(@options[:post_suite])
-          if @options[:post_suite].empty?
-            raise ArgumentError, "empty post-suite!"
-          end
+                'path to project specific steps to be run after testing' do |one_or_more_post_suites|
+          @options[:post_suite] = one_or_more_post_suites
         end
 
         opts.on '--[no-]provision',
@@ -184,8 +95,8 @@ module puppetacceptance
         end
 
         opts.on '--[no-]preserve-hosts',
-                'preserve cloud instances' do |value|
-          @options[:preserve_hosts] = value
+                'preserve cloud instances' do |bool|
+          @options[:preserve_hosts] = bool
         end
 
         opts.on '--root-keys',
@@ -204,21 +115,12 @@ module puppetacceptance
         opts.on '-i uri', '--install uri',
                 'install a project repo/app on the suts', 
                 'provide full git uri or use short form keyword/name',
-                'supported keywords: puppet, facter, hiera, hiera-puppet' do |value|
-          @options[:install] = []
-          if value.is_a?(array)
-            @options[:install] += value
-          elsif value =~ /,/
-            @options[:install] += value.split(',')
-          else
-            @options[:install] << value
-          end
-          @options[:install] = parse_install_options(@options[:install])
+                'supported keywords: puppet, facter, hiera, hiera-puppet' do |one_or_more_install_repos|
+          @options[:install] = one_or_more_install_repos
         end
 
-        opts.on('-m', '--modules uri', 'select puppet module git install uri') do |value|
-          @options[:modules] ||= []
-          @options[:modules] << value
+        opts.on('-m', '--modules uri', 'select puppet module git install uri') do |one_or_more_modules|
+          @options[:modules] = one_or_more_modules
         end
 
         opts.on '-q', '--[no-]quiet',
@@ -279,8 +181,7 @@ module puppetacceptance
         end
 
         opts.on('--help', 'display this screen' ) do |yes|
-          puts opts
-          exit
+          @options[:print_help] = yes
         end
       end
 
@@ -289,7 +190,26 @@ module puppetacceptance
       # we have use the @no_args var because optparse consumes argv as it parses
       # so we have to check the value of argv at the begining of the method,
       # let the options be set, then output usage.
-      puts optparse if @no_args
+      if options[:print_help] or @no_args
+        puts optparse
+        exit
+      end
+
+      @options[:helper]     = munge_possible_arg_list( @options[:helper]     )
+      @options[:load_path]  = munge_possible_arg_list( @options[:load_path]  )
+      @options[:tests]      = munge_possible_arg_list( @options[:tests]      )
+      @options[:pre_suite]  = munge_possible_arg_list( @options[:pre_suite]  )
+      @options[:post_suite] = munge_possible_arg_list( @options[:post_suite] )
+      @options[:install]    = munge_possible_arg_list( @options[:install]    )
+      @options[:modules]    = munge_possible_arg_list( @options[:modules]    )
+
+      @options[:install] = parse_install_options( @options[:install] )
+
+      @options[:pre_suite]  = file_list( @options[:pre_suite]  )
+      @options[:post_suite] = file_list( @options[:post_suite] )
+      @options[:tests]      = file_list( @options[:tests]      )
+
+      @options_from_file = parse_options_file( @options[[:options_file] )
 
       # merge in the options that we read from the file
       @options = @options_from_file.merge(@options)
@@ -300,9 +220,23 @@ module puppetacceptance
         raise ArgumentError.new("--type must be one of pe or git, not '#{@options[:type]}'")
       end
 
-      raise ArgumentError.new("--fail-mode must be one of fast, stop") unless ["fast", "stop", nil].include?(@options[:fail_mode])
+      unless ["fast", "stop", nil].include?(@options[:fail_mode])
+        raise ArgumentError.new("--fail-mode must be one of fast, stop")
+      end
 
       @options
+    end
+
+    # returns deinitely_a_list :)
+    def self.munge_possible_arg_lists( possibly_a_list )
+      case possibly_a_list
+      when Array
+        return possibly_a_list
+      when String
+        return possibly_a_list.split( ',' )
+      else
+        return Array( possibly_a_list )
+      end
     end
 
     def self.parse_options_file(options_file_path)
@@ -320,6 +254,47 @@ module puppetacceptance
       end
 
       result
+    end
+
+    def self.repo?
+      GITREPO
+    end
+
+    def self.parse_install_options(install_opts)
+      install_opts.map! { |opt|
+        case opt
+          when /^puppet\//
+            opt = "#{GITREPO}/puppet.git##{opt.split('/', 2)[1]}"
+          when /^facter\//
+            opt = "#{GITREPO}/facter.git##{opt.split('/', 2)[1]}"
+          when /^hiera\//
+            opt = "#{GITREPO}/hiera.git##{opt.split('/', 2)[1]}"
+          when /^hiera-puppet\//
+            opt = "#{GITREPO}/hiera-puppet.git##{opt.split('/', 2)[1]}"
+        end
+        opt
+      }
+      install_opts
+    end
+
+    def self.file_list(paths)
+      files = []
+      if not paths.empty?
+        paths.each do |root|
+          if File.file? root then
+            files << root
+          else
+            discover_files = Dir.glob(
+              File.join(root, "**/*.rb")
+            ).select { |f| File.file?(f) }
+            if discover_files.empty?
+              raise ArgumentError, "empty directory used as an option (#{root})!"
+            end
+            files += discover_files
+          end
+        end
+      end
+      files
     end
   end
 end
