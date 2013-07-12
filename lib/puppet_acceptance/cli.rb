@@ -1,7 +1,7 @@
 module PuppetAcceptance
   class CLI
     def initialize( command_line_args = ARGV.dup )
-      arg_parser = PuppetAcceptance::Options.new( command_line_args )
+      arg_parser = PuppetAcceptance::Options.new
       @options   = arg_parser.parse_args( command_line_args )
 
       @logger           = PuppetAcceptance::Logger.new( @options )

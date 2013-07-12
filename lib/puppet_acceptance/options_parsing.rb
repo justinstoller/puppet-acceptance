@@ -21,7 +21,7 @@ module PuppetAcceptance
       :provision      => true,
       :preserve_hosts => false,
       :root_keys      => false,
-      :keyfile        => "#{env['home']}/.ssh/id_rsa",
+      :keyfile        => File.expand_path( "#{ENV['HOME']}/.ssh/id_rsa" ),
       :install        => [],
       :modules        => [],
       :quiet          => false,
@@ -39,14 +39,14 @@ module PuppetAcceptance
       cli_args_parser = register_cli_options
       parsed_cli_args = parse_cli_args( cli_args_parser, arguments )
 
-      if parse_cli_args[:print_help] or arguments.empty?
-        puts cli_args_parser
-        exit # We should have a real way to say we want to terminate the program....
-      end
-
       locations        = Array( parsed_cli_args[:options_file] || DEFAULTS[:options_file] )
       args_location    = locations.find {|loc| File.exists?( File.expand_path( loc )) }
       parsed_file_args = parse_file_args( args_location )
+
+      if parsed_cli_args[:print_help] or ( arguments.empty? && parsed_file_args.empty? )
+        puts cli_args_parser
+        exit # We should have a real way to say we want to terminate the program....
+      end
 
       munged_cli_args  = munge_args( parsed_cli_args  )
       munged_file_args = munge_args( parsed_file_args )
@@ -68,7 +68,9 @@ module PuppetAcceptance
       return args_hash
     end
 
-    def parse_args_file(options_file_path)
+    def parse_file_args( options_file_path )
+      return {} unless options_file_path
+
       options_file_path = File.expand_path( options_file_path )
       # this eval will allow the specified options file to have access to our
       # scope.  it is important that the variable 'options_file_path' is
@@ -79,21 +81,24 @@ module PuppetAcceptance
       return result
     end
 
-    def munge_args( options )
-      munged_opts = opts.dub
-      munged_opts[:helper]     = munge_possible_arg_list( options[:helper]     )
-      munged_opts[:load_path]  = munge_possible_arg_list( options[:load_path]  )
-      munged_opts[:tests]      = munge_possible_arg_list( options[:tests]      )
-      munged_opts[:pre_suite]  = munge_possible_arg_list( options[:pre_suite]  )
-      munged_opts[:post_suite] = munge_possible_arg_list( options[:post_suite] )
-      munged_opts[:install]    = munge_possible_arg_list( options[:install]    )
-      munged_opts[:modules]    = munge_possible_arg_list( options[:modules]    )
+    def munge_args( opts )
+      munged_opts = opts.dup
+      munged_opts[:helper]     = munge_possible_arg_list( opts[:helper]     ) if opts[:helper]
+      munged_opts[:load_path]  = munge_possible_arg_list( opts[:load_path]  ) if opts[:load_path]
+      munged_opts[:tests]      = munge_possible_arg_list( opts[:tests]      ) if opts[:tests]
+      munged_opts[:pre_suite]  = munge_possible_arg_list( opts[:pre_suite]  ) if opts[:pre_suite]
+      munged_opts[:post_suite] = munge_possible_arg_list( opts[:post_suite] ) if opts[:post_suite]
+      munged_opts[:install]    = munge_possible_arg_list( opts[:install]    ) if opts[:install]
+      munged_opts[:modules]    = munge_possible_arg_list( opts[:modules]    ) if opts[:modules]
 
-      munged_opts[:install] = parse_install_options( munged_opts[:install] )
+      munged_opts[:install] = parse_install_options( munged_opts[:install] ) if munged_opts[:install]
 
-      munged_opts[:pre_suite]  = file_list( munged_opts[:pre_suite]  )
-      munged_opts[:post_suite] = file_list( munged_opts[:post_suite] )
-      munged_opts[:tests]      = file_list( munged_opts[:tests]      )
+      munged_opts[:pre_suite]  = file_list( munged_opts[:pre_suite]  ) if munged_opts[:pre_suite]
+      munged_opts[:post_suite] = file_list( munged_opts[:post_suite] ) if munged_opts[:post_suite]
+      munged_opts[:tests]      = file_list( munged_opts[:tests]      ) if munged_opts[:tests]
+
+      munged_opts[:keyfile] = File.expand_path( opts[:keyfile] ) if opts[:keyfile]
+      munged_opts[:options_file] = File.expand_path( opts[:options_file] ) if opts[:options_file]
 
       return munged_opts
     end
@@ -108,8 +113,8 @@ module PuppetAcceptance
     def pretty_print_args( args )
       pretty = [ "Options" ] +
         args.map do |arg, val|
-          if val and val != []
-            [ "\t#{opt.to_s}:" ] +
+          if val # and val != []
+            [ "\t#{arg.to_s}:" ] +
             if val.kind_of?(Array)
               val.map do |v|
                 [ "\t\t#{v.to_s}" ]
@@ -120,7 +125,7 @@ module PuppetAcceptance
           end
         end
 
-      return pretty.join( "\n" )
+      return pretty.compact.join( "\n" )
     end
 
     # We raise here instead of call `raise_and_report` because we don't have a logger here
@@ -142,7 +147,7 @@ module PuppetAcceptance
           "or with the :config attribute in an options file" )
       end
 
-      unless args[:options_file].empty
+      unless args[:options_file]
         unless File.exists?( File.expand_path( args[:options] ) )
           raise ArgumentError.new(
             "Specified options file '#{args[:options_file]}' does not exist!" )
@@ -150,7 +155,7 @@ module PuppetAcceptance
       end
     end
 
-    def munge_possible_arg_lists( possibly_a_list )
+    def munge_possible_arg_list( possibly_a_list )
       case possibly_a_list
       when Array
         return possibly_a_list
@@ -189,7 +194,7 @@ module PuppetAcceptance
               File.join(root, "**/*.rb")
             ).select { |f| File.file?(f) }
             if discover_files.empty?
-              raise ArgumentError, "empty directory used as an option (#{root})!"
+              raise ArgumentError, "Empty directory used as an option (#{root})!"
             end
             files += discover_files
           end
@@ -210,10 +215,10 @@ module PuppetAcceptance
       @current_arg_hash[name] = value
     end
 
-    def register_cli_options!
+    def register_cli_options
       optparse = OptionParser.new do |opts|
         # set a banner
-        opts.banner = "Usage: #{file.basename($0)} [options...]"
+        opts.banner = "Usage: #{File.basename($0)} [options...]"
 
         opts.on '-c', '--config file',
                 'use configuration file' do |file|
@@ -234,28 +239,28 @@ module PuppetAcceptance
           register_arg( :type, type )
         end
 
-        opts.on '--helper path/to/script',
+        opts.on '--helper my/helper.rb',
                 'ruby file evaluated prior to tests',
                 '(a la spec_helper)' do |one_or_more_helpers|
           register_arg( :helper, one_or_more_helpers )
         end
 
-        opts.on  '--load-path /path/to/dir,/additional/dir/paths',
+        opts.on  '--load-path my/script-dir/',
                  'add paths to load_path'  do |one_or_more_directories|
           register_arg( :load_path, one_or_more_directories )
         end
 
-        opts.on  '-t', '--tests /path/to/dir,/additiona/dir/paths,/path/to/file.rb',
+        opts.on  '-t', '--tests my/test.rb',
                  'execute tests from paths and files' do |one_or_more_tests|
           register_arg( :tests, one_or_more_tests )
         end
 
-        opts.on '--pre-suite /pre-suite/dir/path,/additional/dir/paths,/path/to/file.rb',
+        opts.on '--pre-suite my/setup.rb',
                 'path to project specific steps to be run before testing' do |one_or_more_pre_suites|
           register_arg( :pre_suite, one_or_more_pre_suites )
         end
 
-        opts.on '--post-suite /post-suite/dir/path,/optional/additonal/dir/paths,/path/to/file.rb',
+        opts.on '--post-suite my/teardown.rb',
                 'path to project specific steps to be run after testing' do |one_or_more_post_suites|
           register_arg( :post_suite, one_or_more_post_suites )
         end
@@ -348,7 +353,7 @@ module PuppetAcceptance
         end
 
         opts.on '--add-el-extras',
-                'add extra packages for enterprise linux (epel) repository to el-* hosts',
+                'add epel repository to E.L. derivative hosts',
                 '(default: false)' do
           register_arg( :add_el_extras, true )
         end

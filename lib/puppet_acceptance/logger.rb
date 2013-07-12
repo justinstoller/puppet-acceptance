@@ -123,6 +123,13 @@ module PuppetAcceptance
       expand_symlinks( trace ).join "\n"
     end
 
+    def to_s
+      return self.class.to_s + "  ---\n" +
+        sprintf( "\t\t%15s : %s\n", 'color', color ) +
+        sprintf( "\t\t%15s : %s\n", 'log level', log_level ) +
+        sprintf( "\t\t%15s : ", 'destinations' ) + destinations.map {|d| d.inspect }.join( "\n" )
+    end
+
    private
     def expand_symlinks backtrace
       backtrace.collect do |line|
