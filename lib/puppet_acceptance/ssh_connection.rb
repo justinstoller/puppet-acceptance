@@ -19,8 +19,8 @@ module PuppetAcceptance
 
     def initialize hostname, user = nil, options = {}
       @hostname = hostname
-      @user = user
-      @options = options
+      @user     = user
+      @options  = options
     end
 
     def self.connect hostname, user = 'root', options = {}

@@ -17,10 +17,10 @@ module PuppetAcceptance
       @config = config
       @virtual_machines = {}
       @noprovision_machines = []
-      @config['HOSTS'].each_key do |name|
-        host_info = @config['HOSTS'][name]
-        #check to see if this host has a hypervisor 
-        hypervisor = host_info['hypervisor'] 
+      @config['HOSTS'].finalize!.each_key do |name|
+        host_info = @config['HOSTS'][name].finalize!
+        #check to see if this host has a hypervisor
+        hypervisor = host_info['hypervisor']
         #provision this box
         # - only if we are running with --provision
         # - only if we have a hypervisor

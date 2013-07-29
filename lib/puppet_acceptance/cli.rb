@@ -9,7 +9,7 @@ module PuppetAcceptance
 
       @logger.debug( arg_parser.pretty_print_args( @options ) )
 
-      @config = PuppetAcceptance::TestConfig.new(@options[:config], @options)
+      @config = arg_parser.parse_config_files( @options )
 
       @options[:load_path].each do |path|
         $LOAD_PATH << File.expand_path(path)
@@ -35,14 +35,14 @@ module PuppetAcceptance
                      [:repo_proxy, "Proxy packaging repositories on ubuntu, debian and solaris-11", Proc.new {@repo_controller.proxy_config}],
                      [:add_el_extras, "Add Extra Packages for Enterprise Linux (EPEL) repository to el-* hosts", Proc.new {@repo_controller.add_el_extras}],
                      [:add_master_entry, "Update /etc/hosts on master with master's ip", Proc.new {@setup.add_master_entry}]]
-      
+
       begin
         trap(:INT) do
           @logger.warn "Interrupt received; exiting..."
           exit(1)
         end
         #setup phase
-        setup_steps.each do |step| 
+        setup_steps.each do |step|
           if (not @options.has_key?(step[0])) or @options[step[0]]
             @logger.notify ""
             @logger.notify "Setup: #{step[1]}"

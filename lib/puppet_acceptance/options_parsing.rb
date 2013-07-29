@@ -1,15 +1,169 @@
-# We want to "parse" the options that come in from both the CLI and/or Options File.
-# Then we want to munge each set of inputs?
-# Then merge and validate the result?
-# Everyone else probably new this, but technically an argument is the attempt
-# to persuade while an option is the right to do something. The harness has
-# options, the user gives any number of arguments (in a variety of formats)
-# to persuade the harness to act in a certain way
+require 'open-uri'
+#
+# Example configuration options...
+#
+# config:
+# options_file:
+# type:
+#
+# helper:
+# load_path:
+#
+# pre_suite:
+# tests:
+# post_suite:
+#
+# provision:
+# preserve_hosts:
+#
+# dry_run:
+# fail_mode:
+# install:
+# modules:
+#
+# quiet:
+# xml:
+# color:
+# debug:
+#
+# ntp:
+# root_keys:
+# repo_proxy:
+# add_el_extras:
+#
+# print_help:
+#
+# # also setable from a host config file specified by the :config option above
+# network:
+#   nfs_server:  none
+#   consoleport: 443
+#   ssh:
+#     timeout:      300
+#     auth_methods: publickey
+#     keys:         /Users/justin/.ssh/id_rsa
+#   hosts:
+#     - name: rhel-6-latest-64-1
+#       roles:
+#         - master
+#         - database
+#         - agent
+#       platform: el-6-x86_64
+#       template: myTemplate
+#       snapshot: demo1-ready
+#       provisioner: vsphere
+#       ip: 192.168.0.10
+#
+#
+# # also setable from a host config file or a .fog file
+# provisioners:
+#   - name: vcloud
+#     datastore:    instance0
+#     folder:       Delivery/Quality Assurance/Enterprise/Dynamic
+#     resourcepool: delivery/Quality Assurance/Enterprise/Dynamic
+#     password:     mYP@$$w0rd
+#
 module PuppetAcceptance
+  class Configuration
+    attr_accessor :defaults
+
+    def initialize( defaults = Hash.new, &block )
+      @defaults = defaults
+      yield self if block_given?
+    end
+
+    def []( key )
+      retrieve( key )
+    end
+
+    def to_ary
+      defaults.to_a
+    end
+    alias_method :to_a, :to_ary
+
+    def retrieve( key )
+      if defaults.has_key?( key.to_s )
+        raw_value = defaults.fetch( key.to_s )
+      else
+        raw_value = defaults.fetch( key.to_sym, self.class.new )
+      end
+
+      if raw_value.is_a? Hash
+        value = self.class.new( raw_value )
+      else
+        value = raw_value
+      end
+
+      set( key, value ) unless exists?( key )
+
+      return value
+    end
+
+    def exists?( key )
+      defaults.has_key?( key.to_s ) or defaults.has_key?( key.to_sym )
+    end
+
+    def []=( key, value )
+      set( key, value )
+    end
+
+    def set( key, value )
+      defaults[key.to_sym] = value
+    end
+
+    def to_hash
+      @defaults
+    end
+
+    def finalize!
+      final = {}
+      defaults.each_pair do |key, value|
+        if value.is_a? self.class
+          final[key] = value.finalize!
+        else
+          final[key] = value
+        end
+      end
+
+      return final
+    end
+
+    def method_missing( meth, *values, &block )
+      key = meth.to_s.end_with?( '=' ) ? meth.to_s.chop.to_sym : meth
+      if values.empty? and not block_given?
+        return self[key]
+
+      elsif values.empty? and block_given?
+        if block.arity == 1
+          block.call( retrieve( key ) )
+
+        else
+          set( key, block )
+        end
+
+      elsif values.length == 1
+        set( key, values.first )
+
+      else
+        set( key, values )
+      end
+    end
+
+    def merge( other_conf )
+      if other_conf.is_a? self.class
+        values = other_conf.defaults
+      elsif other_conf.is_a? Hash
+        values = other_conf
+      else
+        raise "Don't know how to merge #{other_conf.class}: #{other_conf.inspect}"
+      end
+      self.class.new( defaults.merge( values ) )
+    end
+  end
+
   class Options
     GITREPO = 'git://github.com/puppetlabs'
 
-    DEFAULTS = {
+    DEFAULTS = Configuration.new({
       :config         => nil,
       :options_file   => ['options.rb', File.join('acceptance', 'options.rb')],
       :type           => 'pe',
@@ -21,7 +175,6 @@ module PuppetAcceptance
       :provision      => true,
       :preserve_hosts => false,
       :root_keys      => false,
-      :keyfile        => File.expand_path( "#{ENV['HOME']}/.ssh/id_rsa" ),
       :install        => [],
       :modules        => [],
       :quiet          => false,
@@ -32,30 +185,174 @@ module PuppetAcceptance
       :fail_mode      => nil,
       :timesync       => false,
       :repo_proxy     => false,
-      :add_el_extras  => false
-    }
+      :add_el_extras  => false,
+      :pe_location    => nil,
+      :pe_build       => nil,
+      :pe_build_file  => nil,
+      :print_help     => false,
+      :ssh            => {
+        :config                => false,
+        :paranoid              => false,
+        :timeout               => 300,
+        :auth_methods          => ["publickey"],
+        :keys                  => [ File.expand_path( "#{ENV['HOME']}/.ssh/id_rsa" ) ],
+        :port                  => 22,
+        :user_known_hosts_file => "#{ENV['HOME']}/.ssh/known_hosts",
+        :forward_agent         => true
+      }
+    })
+
+#############################################################################
+# BEGIN OLD TEST CONFIG CODE
+#############################################################################
+
+    # Needs to return an objet that looks like an old @config hash
+    def parse_config_files( options )
+      @is_pe = options[:type] =~ /pe/ ? true : false
+      unless ENV['IS_PE'].nil?
+        @is_pe ||= ENV['IS_PE'] == 'true'
+      end
+
+      load_file( options[:config] )
+    end
+
+    def load_file( config_info )
+      if config_info.is_a?( Hash ) or config_info.is_a?( Configuration )
+        config = config_info
+      else
+        config = YAML.load_file( config_info )
+
+        # Make sure the roles array is present for all hosts
+        config['HOSTS'].each_key do |host|
+          config['HOSTS'][host]['roles'] ||= []
+        end
+      end
+
+      # Merge some useful date into the config hash
+      config['CONFIG'] ||= {}
+      consoleport = ENV['consoleport'] || config['CONFIG']['consoleport'] || 443
+      config['CONFIG']['consoleport']        = consoleport.to_i
+      config['CONFIG']['ssh']                = DEFAULTS[:ssh].merge(config['CONFIG']['ssh'] || {})
+
+      if is_pe?
+        config['CONFIG']['pe_dir']           = puppet_enterprise_dir
+        config['CONFIG']['pe_ver']           = puppet_enterprise_version
+        config['CONFIG']['pe_ver_win']       = puppet_enterprise_version_win
+      end
+
+      Configuration.new( config )
+    end
+
+    def is_pe?
+      @is_pe
+    end
+
+    def puppet_enterprise_dir
+      @pe_dir ||= ENV['pe_dist_dir'] || '/opt/enterprise/dists'
+    end
+
+    def load_pe_version
+      dist_dir = puppet_enterprise_dir
+      version_file = ENV['pe_version_file'] || 'LATEST'
+      version = ""
+      begin
+        open("#{dist_dir}/#{version_file}") do |file|
+          while line = file.gets
+            if /(\w.*)/ =~ line then
+              version = $1.strip
+            end
+          end
+        end
+      rescue
+        version = 'unknown'
+      end
+      return version
+    end
+
+    def puppet_enterprise_version
+      @pe_ver ||= load_pe_version if is_pe?
+    end
+
+    def load_pe_version_win
+      dist_dir = puppet_enterprise_dir
+      version_file = ENV['pe_version_file'] || 'LATEST-win'
+      version = ""
+      begin
+        open("#{dist_dir}/#{version_file}") do |file|
+          while line = file.gets
+            if /(\w.*)/ =~ line then
+              version=$1.strip
+            end
+          end
+        end
+      rescue
+        version = 'unknown'
+      end
+      return version
+    end
+
+    def puppet_enterprise_version_win
+      @pe_ver_win ||= load_pe_version_win if is_pe?
+    end
+
+    # This isn't the config's responsibility and should be merged
+    # with the formatting done with `pretty_print` below....
+    #
+    def dump; end # Substiting a no-op for now
+    #def dump
+    #  # Access "platform" for each host
+    #  @config["HOSTS"].each_key do|host|
+    #    @logger.notify "Platform for #{host} #{@config["HOSTS"][host]['platform']}"
+    #  end
+
+    #  # Access "roles" for each host
+    #  @config["HOSTS"].each_key do|host|
+    #    @config["HOSTS"][host]['roles'].each do |role|
+    #      @logger.notify "Role for #{host} #{role}"
+    #    end
+    #  end
+
+    #  # Print out Ruby versions
+    #  @config["HOSTS"].each_key do|host|
+    #      @logger.notify "Ruby version for #{host} #{@config["HOSTS"][host][:ruby_ver]}"
+    #  end
+
+    #  # Access @config keys/values
+    #  @config["CONFIG"].each_key do|cfg|
+    #      @logger.notify "Config Key|Val: #{cfg} #{@config["CONFIG"][cfg].inspect}"
+    #  end
+    #end
+
+#############################################################################
+# END OLD TEST CONFIG CODE
+#############################################################################
 
     def parse_args( arguments )
       cli_args_parser = register_cli_options
       parsed_cli_args = parse_cli_args( cli_args_parser, arguments )
 
-      locations        = Array( parsed_cli_args[:options_file] || DEFAULTS[:options_file] )
+      if parsed_cli_args.exists?( :options_file )
+        locations = Array( parsed_cli_args[:options_file] )
+      else
+        locations = DEFAULTS[:options_file]
+      end
+
       args_location    = locations.find {|loc| File.exists?( File.expand_path( loc )) }
       parsed_file_args = parse_file_args( args_location )
-
-      if parsed_cli_args[:print_help] or ( arguments.empty? && parsed_file_args.empty? )
-        puts cli_args_parser
-        exit # We should have a real way to say we want to terminate the program....
-      end
 
       munged_cli_args  = munge_args( parsed_cli_args  )
       munged_file_args = munge_args( parsed_file_args )
 
       merged_args = merge_args( DEFAULTS, munged_file_args, munged_cli_args )
 
+      if merged_args[:print_help] or ( arguments.empty? && parsed_file_args.empty? )
+        puts cli_args_parser
+        exit # We should have a real way to say we want to terminate the program....
+      end
+
       validate_args( merged_args )
 
-      return merged_args
+      return merged_args.finalize!
     end
 
     def parse_cli_args( parser, args )
@@ -65,11 +362,11 @@ module PuppetAcceptance
       parser.parse( args )
       unset_args_hash
 
-      return args_hash
+      return Configuration.new( args_hash )
     end
 
     def parse_file_args( options_file_path )
-      return {} unless options_file_path
+      return Configuration.new unless options_file_path
 
       options_file_path = File.expand_path( options_file_path )
       # this eval will allow the specified options file to have access to our
@@ -78,27 +375,46 @@ module PuppetAcceptance
       # that variable to determine their own location (for use in 'require's, etc.)
       result = eval( File.read( options_file_path ) )
 
-      return result
+      if result.is_a? Hash
+        return Configuration.new( result )
+      elsif result.is_a? Configuration
+        return result
+      end
     end
 
     def munge_args( opts )
       munged_opts = opts.dup
-      munged_opts[:helper]     = munge_possible_arg_list( opts[:helper]     ) if opts[:helper]
-      munged_opts[:load_path]  = munge_possible_arg_list( opts[:load_path]  ) if opts[:load_path]
-      munged_opts[:tests]      = munge_possible_arg_list( opts[:tests]      ) if opts[:tests]
-      munged_opts[:pre_suite]  = munge_possible_arg_list( opts[:pre_suite]  ) if opts[:pre_suite]
-      munged_opts[:post_suite] = munge_possible_arg_list( opts[:post_suite] ) if opts[:post_suite]
-      munged_opts[:install]    = munge_possible_arg_list( opts[:install]    ) if opts[:install]
-      munged_opts[:modules]    = munge_possible_arg_list( opts[:modules]    ) if opts[:modules]
 
-      munged_opts[:install] = parse_install_options( munged_opts[:install] ) if munged_opts[:install]
+      opts_that_take_lists = [ :helper, :load_path, :tests, :pre_suite,
+                               :post_suite, :install, :modules          ]
 
-      munged_opts[:pre_suite]  = file_list( munged_opts[:pre_suite]  ) if munged_opts[:pre_suite]
-      munged_opts[:post_suite] = file_list( munged_opts[:post_suite] ) if munged_opts[:post_suite]
-      munged_opts[:tests]      = file_list( munged_opts[:tests]      ) if munged_opts[:tests]
+      opts_that_take_lists.each do |key|
+        munged_opts[key] = munge_possible_arg_list( opts[key] ) if opts.exists?( key )
+      end
 
-      munged_opts[:keyfile] = File.expand_path( opts[:keyfile] ) if opts[:keyfile]
-      munged_opts[:options_file] = File.expand_path( opts[:options_file] ) if opts[:options_file]
+      if munged_opts.exists?( :install )
+        munged_opts[:install] = parse_install_options( munged_opts[:install] )
+      end
+
+      opts_that_take_file_lists = [ :pre_suite, :post_suite, :tests, :helper ]
+      opts_that_take_file_lists.each do |key|
+        if munged_opts.exists?( key )
+
+          munged_opts[key] = file_list( munged_opts[key] )
+
+          munged_opts[key] = munged_opts[key].map do |file|
+            File.expand_path( file )
+          end
+        end
+      end
+
+      single_files_to_be_expanded = [ :options_file ]
+      single_files_to_be_expanded.each do |key|
+        munged_opts[key] = File.expand_path( munged_opts[key] ) if munged_opts.exists?( key )
+      end
+
+      # what to do with you???
+      munged_opts[:keyfile] = File.expand_path( opts[:keyfile] ) if opts.exists?( :keyfile )
 
       return munged_opts
     end
@@ -112,21 +428,28 @@ module PuppetAcceptance
 
     def pretty_print_args( args )
       pretty = [ "Options" ] +
-        args.map do |arg, val|
-          if val # and val != []
-            [ "\t#{arg.to_s}:" ] +
-            if val.kind_of?(Array)
-              val.map do |v|
-                [ "\t\t#{v.to_s}" ]
-              end
-            else
-              [ "\t\t#{val.to_s}" ]
-            end
-          end
-        end
+        pretty_print_hash( args, "\t" )
 
       return pretty.compact.join( "\n" )
     end
+
+    def pretty_print_hash( args, offset )
+      args.map do |arg, val|
+        if val and val != []
+          [ "#{offset}#{arg.to_s}:" ] +
+          if val.kind_of?( Array )
+            val.map do |v|
+              [ "#{offset}\t#{v.to_s}" ]
+            end
+          elsif val.kind_of?( Hash )
+            pretty_print_hash( val, offset + offset )
+          else
+            [ "#{offset}\t#{val.to_s}" ]
+          end
+        end
+      end.flatten
+    end
+
 
     # We raise here instead of call `raise_and_report` because we don't have a logger here
     # and we expect to be called without one
@@ -211,8 +534,17 @@ module PuppetAcceptance
       @current_arg_hash = nil
     end
 
-    def register_arg( name, value )
-      @current_arg_hash[name] = value
+    def register_arg( *things )
+      value = things.pop
+      length = things.length
+      current_hsh = @current_arg_hash
+      things.each_with_index do |key, i|
+        if i == ( length - 1 )
+          current_hsh[key] = value
+        else
+          current_hsh = current_hsh[key]
+        end
+      end
     end
 
     def register_cli_options

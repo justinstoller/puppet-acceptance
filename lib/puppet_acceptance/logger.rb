@@ -140,16 +140,17 @@ module PuppetAcceptance
     end
 
     def purge_harness_files_from backtrace
-      mostly_purged = backtrace.reject do |line|
-        # LOADED_FEATURES is an array of anything `require`d, i.e. everything
-        # but the test in question
-        $LOADED_FEATURES.any? do |require_path|
-          line.include? require_path
-        end
-      end
+      #mostly_purged = backtrace.reject do |line|
+      #  # LOADED_FEATURES is an array of anything `require`d, i.e. everything
+      #  # but the test in question
+      #  $LOADED_FEATURES.any? do |require_path|
+      #    line.include? require_path
+      #  end
+      #end
 
-      # And remove lines that contain our program name in them
-      completely_purged = mostly_purged.reject {|line| line.include? $0 }
+      ## And remove lines that contain our program name in them
+      #completely_purged = mostly_purged.reject {|line| line.include? $0 }
+      backtrace
     end
 
     # utility method that takes a path as input, checks each component
