@@ -1,10 +1,9 @@
-module PuppetAcceptance 
+module PuppetAcceptance
   class Vsphere < PuppetAcceptance::Hypervisor
 
-    def initialize(vsphere_hosts, options, config)
-      @options = options
-      @@config = config['CONFIG'].dup
-      @logger = options[:logger]
+    def initialize(vsphere_hosts, config)
+      @@config = config
+      @logger = config[:logger]
       @vsphere_hosts = vsphere_hosts
       require 'yaml' unless defined?(YAML)
       vsphere_credentials = VsphereHelper.load_config

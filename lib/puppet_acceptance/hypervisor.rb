@@ -5,24 +5,24 @@ module PuppetAcceptance
       @logger.debug "No post-provisioning configuration necessary for #{self.class.name} boxes"
     end
 
-    def self.create type, hosts_to_provision, options, config
-      @logger = options[:logger]
+    def self.create type, hosts_to_provision, config
+      @logger = config[:logger]
       @logger.notify("PuppetAcceptance::Hypervisor, found some #{type} boxes to create") 
       case type
         when /aix/
-          PuppetAcceptance::Aixer.new hosts_to_provision, options, config
+          PuppetAcceptance::Aixer.new hosts_to_provision, config
         when /solaris/
-          PuppetAcceptance::Solaris.new hosts_to_provision, options, config
+          PuppetAcceptance::Solaris.new hosts_to_provision, config
         when /vsphere/
-          PuppetAcceptance::Vsphere.new hosts_to_provision, options, config
+          PuppetAcceptance::Vsphere.new hosts_to_provision, config
         when /fusion/
-          PuppetAcceptance::Fusion.new hosts_to_provision, options, config
+          PuppetAcceptance::Fusion.new hosts_to_provision, config
         when /blimpy/
-          PuppetAcceptance::Blimper.new hosts_to_provision, options, config
+          PuppetAcceptance::Blimper.new hosts_to_provision, config
         when /vcloud/
-          PuppetAcceptance::Vcloud.new hosts_to_provision, options, config
+          PuppetAcceptance::Vcloud.new hosts_to_provision, config
         when /vagrant/
-          PuppetAcceptance::Vagrant.new hosts_to_provision, options, config
+          PuppetAcceptance::Vagrant.new hosts_to_provision, config
         end
     end
   end

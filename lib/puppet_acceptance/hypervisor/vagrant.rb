@@ -1,4 +1,4 @@
-module PuppetAcceptance 
+module PuppetAcceptance
   class Vagrant < PuppetAcceptance::Hypervisor
 
     # Return a random mac address
@@ -11,7 +11,7 @@ module PuppetAcceptance
     def rand_chunk
       (1 + rand(253)).to_s #don't want a 0 or a 255
     end
-    
+
     def randip
       "192.168.#{rand_chunk}.#{rand_chunk}"
     end
@@ -32,7 +32,7 @@ module PuppetAcceptance
         @logger.debug "created Vagrantfile for VagrantHost #{host.name}"
       end
       vagrant_file << "end\n"
-      f = File.open("Vagrantfile", 'w') 
+      f = File.open("Vagrantfile", 'w')
       f.write(vagrant_file)
       f.close()
     end
@@ -61,9 +61,9 @@ module PuppetAcceptance
         f = Tempfile.new("#{host.name}")
         ssh_config = `vagrant ssh-config #{host.name}`
         #replace hostname with ip
-        ssh_config = ssh_config.gsub(/#{host.name}/, host['ip']) 
-        #set the user 
-        ssh_config = ssh_config.gsub(/User vagrant/, "User #{user}") 
+        ssh_config = ssh_config.gsub(/#{host.name}/, host['ip'])
+        #set the user
+        ssh_config = ssh_config.gsub(/User vagrant/, "User #{user}")
         f.write(ssh_config)
         f.rewind
         host['ssh'] = {:config => f.path()}
@@ -71,18 +71,17 @@ module PuppetAcceptance
         @temp_files << f
     end
 
-    def initialize(vagrant_hosts, options, config)
+    def initialize(vagrant_hosts, config)
       require 'tempfile'
-      @options = options
-      @config = config['CONFIG'].dup
-      @logger = options[:logger]
+      @config = config
+      @logger = config[:logger]
       @temp_files = []
       @vagrant_hosts = vagrant_hosts
 
       make_vfile @vagrant_hosts
 
       #stop anything currently running, that way vagrant up will re-do networking on existing boxes
-      system("vagrant halt") 
+      system("vagrant halt")
       system("vagrant up")
 
       @logger.debug "configure vagrant boxes (set ssh-config, switch to root user, hack etc/hosts)"
@@ -90,10 +89,10 @@ module PuppetAcceptance
         default_user = host['user']
 
         set_ssh_config host, 'vagrant'
-        
+
         copy_ssh_to_root host
         #shut down connection, will reconnect on next exec
-        host.close 
+        host.close
 
         set_ssh_config host, default_user
 

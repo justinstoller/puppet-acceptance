@@ -51,9 +51,6 @@ module PuppetAcceptance
     # 'pe' directories within 'ROOT/setup' for examples.
     attr_reader :version
 
-    # A Hash of values taken from host config file.
-    attr_reader :config
-
     # Parsed command line options.
     attr_reader :options
 
@@ -94,12 +91,11 @@ module PuppetAcceptance
     #                                        against/on.
     # @param [Logger] logger A logger that implements
     #                        {PuppetAcceptance::Logger}'s interface.
-    # @param [Hash{String=>String}] config Clusterfck of various config opts.
     # @param [Hash{Symbol=>String}] options Parsed command line options.
     # @param [String] path The local path to a test file to be executed.
-    def initialize(these_hosts, logger, config, options={}, path=nil)
-      @version = config['VERSION']
-      @config  = config['CONFIG']
+    def initialize(these_hosts, logger, options={}, path=nil)
+      @version = options[:network]['VERSION']
+      @config  = options[:network]['CONFIG']
       @hosts   = these_hosts
       @logger = logger
       @options = options
@@ -172,7 +168,7 @@ module PuppetAcceptance
     def to_hash
       hash = {}
       hash['HOSTS'] = {}
-      hash['CONFIG'] = @config
+      hash['CONFIG'] = @options[:network]['CONFIG']
       @hosts.each do |host|
         hash['HOSTS'][host.name] = host.overrides
       end
@@ -219,7 +215,7 @@ module PuppetAcceptance
     # @return [String] hostname of test forge
     def forge
       ENV['forge_host'] ||
-        @config['forge_host'] ||
+        @options[:network]['CONFIG']['forge_host'] ||
         'vulcan-acceptance.delivery.puppetlabs.net'
     end
   end

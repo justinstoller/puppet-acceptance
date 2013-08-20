@@ -10,22 +10,21 @@ module PuppetAcceptance
   class NetworkManager
     HYPERVISOR_TYPES = ['solaris', 'blimpy', 'vsphere', 'fusion', 'aix', 'vcloud', 'vagrant']
 
-    def initialize(config, options, logger)
-      @logger = logger
-      @options = options
+    def initialize(config)
+      @logger = config[:logger]
       @hosts = []
       @config = config
       @virtual_machines = {}
       @noprovision_machines = []
-      @config['HOSTS'].finalize!.each_key do |name|
-        host_info = @config['HOSTS'][name].finalize!
+      @config[:network]['HOSTS'].finalize!.each_key do |name|
+        host_info = @config[:network]['HOSTS'][name].finalize!
         #check to see if this host has a hypervisor
         hypervisor = host_info['hypervisor']
         #provision this box
         # - only if we are running with --provision
         # - only if we have a hypervisor
         # - only if either the specific hosts has no specification or has 'provision' in its config
-        if @options[:provision] && hypervisor && (host_info.has_key?('provision') ? host_info['provision'] : true) #obey config file provision, defaults to provisioning vms
+        if @config[:provision] && hypervisor && (host_info.has_key?('provision') ? host_info['provision'] : true) #obey config file provision, defaults to provisioning vms
           raise "Invalid hypervisor: #{hypervisor} (#{name})" unless HYPERVISOR_TYPES.include? hypervisor
           @logger.debug "Hypervisor for #{name} is #{host_info['hypervisor'] || 'default' }, and I'm going to use #{hypervisor}"
           @virtual_machines[hypervisor] = [] unless @virtual_machines[hypervisor]
@@ -43,14 +42,14 @@ module PuppetAcceptance
         hosts_for_type = []
         #set up host objects for provisioned provisioned_set
         names.each do |name|
-          host = PuppetAcceptance::Host.create(name, @options, @config)
+          host = PuppetAcceptance::Host.create(name, @config)
           hosts_for_type << host
         end
-        @provisioned_set[type] = PuppetAcceptance::Hypervisor.create(type, hosts_for_type, @options, @config)
+        @provisioned_set[type] = PuppetAcceptance::Hypervisor.create(type, hosts_for_type, @config)
         @hosts << hosts_for_type
       end
       @noprovision_machines.each do |name|
-        @hosts << PuppetAcceptance::Host.create(name, @options, @config)
+        @hosts << PuppetAcceptance::Host.create(name, @config)
       end
       @hosts = @hosts.flatten
       @hosts
@@ -61,7 +60,7 @@ module PuppetAcceptance
       #shut down connections
       @hosts.each {|host| host.close }
 
-      if not @options[:preserve_hosts]
+      if not @config[:preserve_hosts]
         @provisioned_set.each_key do |type|
           @provisioned_set[type].cleanup
         end

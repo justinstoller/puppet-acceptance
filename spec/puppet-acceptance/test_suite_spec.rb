@@ -7,20 +7,20 @@ module PuppetAcceptance
     context 'new', :use_fakefs => true do
       let(:test_dir) { 'tmp/tests' }
 
-      let(:options)  { {:tests => create_files(@files)} }
+      let(:config)  { {:tests => create_files(@files)} }
       let(:rb_test)  { File.expand_path(test_dir + '/my_ruby_file.rb')    }
       let(:pl_test)  { File.expand_path(test_dir + '/my_perl_file.pl')    }
       let(:sh_test)  { File.expand_path(test_dir + '/my_shell_file.sh')   }
 
       it 'fails without test files' do
         expect { PuppetAcceptance::TestSuite.new 'name', 'hosts',
-                  Hash.new, 'config', :stop_on_error }.to raise_error
+                  Hash.new, :stop_on_error }.to raise_error
       end
 
       it 'includes specific files as test file when explicitly passed' do
         @files = [ rb_test ]
-        ts = PuppetAcceptance::TestSuite.new 'name', 'hosts', options,
-                                             'config', :stop_on_error
+        ts = PuppetAcceptance::TestSuite.new 'name', 'hosts', config,
+                                             :stop_on_error
 
         expect { ts.instance_variable_get(:@test_files).
                   include? rb_test }.to be_true
@@ -31,7 +31,7 @@ module PuppetAcceptance
         @files = [ test_dir ]
 
         ts = PuppetAcceptance::TestSuite.new 'name', 'hosts',
-               options, 'config', :stop_on_error
+               config, :stop_on_error
 
         processed_files = ts.instance_variable_get :@test_files
 

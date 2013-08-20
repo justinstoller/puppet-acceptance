@@ -21,10 +21,9 @@ module PuppetAcceptance
       ports
     end
 
-  def initialize(blimpy_hosts, options, config)
-    @options = options
-    @config = config['CONFIG'].dup
-    @logger = options[:logger]
+  def initialize(blimpy_hosts, config)
+    @config = config
+    @logger = config[:logger]
     @blimpy_hosts = blimpy_hosts
     require 'rubygems' unless defined?(Gem)
     require 'yaml' unless defined?(YAML)
@@ -39,8 +38,8 @@ module PuppetAcceptance
       @blimpy_hosts.each do |host|
         amitype = host['vmname'] || host['platform']
         amisize = host['amisize'] || 'm1.small'
-        #use snapshot provided for this host 
-        image_type = host['snapshot'] 
+        #use snapshot provided for this host
+        image_type = host['snapshot']
         if not image_type
           raise "No snapshot/image_type provided for blimpy provisioning"
         end

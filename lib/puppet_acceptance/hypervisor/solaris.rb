@@ -1,37 +1,38 @@
-module PuppetAcceptance 
+module PuppetAcceptance
   class Solaris < PuppetAcceptance::Hypervisor
 
-    def initialize(solaris_hosts, options, config)
-      @options = options
-      @config = config['CONFIG'].dup
-      @logger = options[:logger]
+    def initialize(solaris_hosts, config)
+      @config = config
+      @logger = config[:logger]
       @solaris_hosts = solaris_hosts
-      fog_file = nil
-      if File.exists?( File.join(ENV['HOME'], '.fog') )
-        fog_file = YAML.load_file( File.join(ENV['HOME'], '.fog') )
-      end
-      raise "Cant load ~/.fog config" unless fog_file
+      #
+      # This is configuration....
+      # fog_file = nil
+      # if File.exists?( File.join(ENV['HOME'], '.fog') )
+      #   fog_file = YAML.load_file( File.join(ENV['HOME'], '.fog') )
+      # end
+      # raise "Cant load ~/.fog config" unless fog_file
 
-      hypername = fog_file[:default][:solaris_hypervisor_server]
-      vmpath    = fog_file[:default][:solaris_hypervisor_vmpath]
-      snappaths = fog_file[:default][:solaris_hypervisor_snappaths]
+      # hypername = fog_file[:default][:solaris_hypervisor_server]
+      # vmpath    = fog_file[:default][:solaris_hypervisor_vmpath]
+      # snappaths = fog_file[:default][:solaris_hypervisor_snappaths]
 
-      hyperconf = {
-        'HOSTS'  => {
-          hypername => { 'platform' => 'solaris-11-sparc' }
-        },
-        'CONFIG' => {
-          'user' => fog_file[:default][:solaris_hypervisor_username] || ENV['USER'],
-          'ssh'  => {
-            :keys => fog_file[:default][:solaris_hypervisor_keyfile] || "#{ENV['HOME']}/.ssh/id_rsa"
-          }
-        }
-      }
+      # hyperconf = {
+      #   'HOSTS'  => {
+      #     hypername => { 'platform' => 'solaris-11-sparc' }
+      #   },
+      #   'CONFIG' => {
+      #     'user' => fog_file[:default][:solaris_hypervisor_username] || ENV['USER'],
+      #     'ssh'  => {
+      #       :keys => fog_file[:default][:solaris_hypervisor_keyfile] || "#{ENV['HOME']}/.ssh/id_rsa"
+      #     }
+      #   }
+      # }
 
-      hyperconfig = PuppetAcceptance::TestConfig.new( hyperconf, @options )
+      # hyperconfig = PuppetAcceptance::TestConfig.new( hyperconf, @options )
 
-      @logger.notify "Connecting to hypervisor at #{hypername}"
-      hypervisor = PuppetAcceptance::Host.create( hypername, @options, hyperconfig )
+      # @logger.notify "Connecting to hypervisor at #{hypername}"
+      # hypervisor = PuppetAcceptance::Host.create( hypername, @options, hyperconfig )
 
       @solaris_hosts.each do |host|
         vm_name = host['vmname'] || host.name

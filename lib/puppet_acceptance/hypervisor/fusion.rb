@@ -1,16 +1,15 @@
-module PuppetAcceptance 
+module PuppetAcceptance
   class Fusion < PuppetAcceptance::Hypervisor
 
-  def initialize(fusion_hosts, options, config)
+  def initialize(fusion_hosts, config)
       require 'rubygems' unless defined?(Gem)
       begin
         require 'fission'
       rescue LoadError
         raise "Unable to load fission, please ensure it is installed!"
       end
-      @logger = options[:logger]
-      @options = options
-      @config = config['CONFIG'].dup
+      @logger = config[:logger]
+      @config = config
       @fusion_hosts = fusion_hosts
 
 

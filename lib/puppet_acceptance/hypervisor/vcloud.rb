@@ -1,16 +1,15 @@
-module PuppetAcceptance 
+module PuppetAcceptance
   class Vcloud < PuppetAcceptance::Hypervisor
 
-    def initialize(vcloud_hosts, options, config)
-      @options = options
-      @config = config['CONFIG'].dup
-      @logger = options[:logger]
+    def initialize(vcloud_hosts, config)
+      @config = config
+      @logger = config[:logger]
       @vcloud_hosts = vcloud_hosts
       require 'yaml' unless defined?(YAML)
 
-      raise 'You must specify a datastore for vCloud instances!' unless @config['datastore']
-      raise 'You must specify a resource pool for vCloud instances!' unless @config['resourcepool']
-      raise 'You must specify a folder for vCloud instances!' unless @config['folder']
+      raise 'You must specify a datastore for vCloud instances!' unless @config[:network]['CONFIG']['datastore']
+      raise 'You must specify a resource pool for vCloud instances!' unless @config[:network]['CONFIG']['resourcepool']
+      raise 'You must specify a folder for vCloud instances!' unless @config[:network]['CONFIG']['folder']
 
       vsphere_credentials = VsphereHelper.load_config
 
@@ -106,7 +105,7 @@ module PuppetAcceptance
       end
       @logger.notify "Spent %.2f seconds waiting for DNS resolution" % (Time.now - start)
 
-      vsphere_helper.close 
+      vsphere_helper.close
     end
 
     def cleanup
