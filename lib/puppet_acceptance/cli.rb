@@ -1,10 +1,14 @@
+require 'pp'
+
 module PuppetAcceptance
   class CLI
     def initialize( command_line_args = ARGV.dup )
       config_manager = PuppetAcceptance::Config::Manager.new
-      @configuration = config_manager.get_configuration( command_line_args )
+      @configuration = config_manager.get_configuration
 
-      @logger           = PuppetAcceptance::Logger.new( @configuration )
+
+      pp( @configuration[:output] )
+      @logger           = PuppetAcceptance::Logger.new( @configuration[:output] )
       @configuration[:logger] = @logger
 
       @logger.debug( config_manager.pretty_print_args( @configuration ) )

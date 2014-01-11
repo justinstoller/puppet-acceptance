@@ -1,104 +1,138 @@
+require 'pp'
+
 module PuppetAcceptance
   module Config
     class Manager
-      GITREPO = 'git://github.com/puppetlabs'
 
-      attr_reader :file_parser, :cli_parser, :validator
+      SORT_ORDER = [ :defaults, :other, :file, :env, :cli ]
 
-      def initialize( file_parser = PuppetAcceptance::Config::FileParser.new,
-                      cli_parser  = PuppetAcceptance::Config::CliParser.new,
-                      validator   = PuppetAcceptance::Config::Validator.new   )
+      attr_reader :input_types, :munger, :validator, :cli_parser, :env_parser, :file_parser
 
-        @file_parser = file_parser
-        @cli_parser  = cli_parser
+      def initialize( input_types = [ :cli, :env, :options_file, :hosts_config, :fog, :pe_version ],
+                      validator   = Validator.new,
+                      munger      = Munger.new,
+                      cli_parser  = CliParser.new,
+                      file_parser = FileParser.new,
+                      env_parser  = EnvParser.new
+                    )
+
+        @input_types = input_types
         @validator   = validator
+        @munger      = munger
+        @cli_parser  = cli_parser
+        @file_parser = file_parser
+        @env_parser  = env_parser
       end
 
-      def get_configuration( cli_args )
+      def configuration_for( type, configuration_up_to_now )
+        method_name = "parse_#{type}".to_sym
 
-        parsed_cli_args = cli_parser.parse( arguments )
+        puts ''
+        puts 'configuration up to now:'
+        puts configuration_up_to_now.inspect
+        puts ''
 
-        if parsed_cli_args.exists?( :options_file )
-          locations = Array( parsed_cli_args[:options_file] )
-        else
-          locations = PuppetAcceptance::Config::DEFAULTS[:options_file]
+        parsed_input  = self.send( method_name, configuration_up_to_now )
+
+        puts 'parsed input:'
+        puts parsed_input.inspect
+        puts ''
+
+        valid_input   = validator.validate( parsed_input )
+
+        puts 'valid input:'
+        puts valid_input.inspect
+        puts ''
+
+        configuration = munger.munge( valid_input )
+
+        puts 'munged output:'
+        puts configuration.inspect
+        puts ''
+
+        return configuration
+      end
+
+      def get_configuration
+        defaults = PuppetAcceptance::Config::NEW_DEFAULTS
+        configurations = []
+
+        input_types.inject( [defaults] ) do |previous_configurations, input_type|
+
+          #puts ''
+          #puts input_type
+          #puts 'previous configuration for this round: '
+          #puts Array(previous_configurations).map{|c| c.inspect }
+          #puts ''
+
+          the_world_up_to_now = merge( *previous_configurations )
+          this_configuration  = configuration_for( input_type, the_world_up_to_now )
+
+          #puts ''
+          #puts 'this computed configuration:'
+          #puts this_configuration.inspect
+          #puts ''
+
+          configurations << this_configuration
+
+          previous_configurations + [this_configuration]
         end
 
-        args_location    = locations.find {|loc| File.exists?( File.expand_path( loc )) }
-        parsed_file_args = file_parser.load_rb_file( args_location )
+        merged_configuration = merge( *configurations )
+        final_configuration = finalize( merged_configuration )
 
-        munged_cli_args  = munge_args( parsed_cli_args  )
-        munged_file_args = munge_args( parsed_file_args )
+        return final_configuration
+      end
 
-        merged_args = merge_args( PuppetAcceptance::Config::DEFAULTS,
-                                  munged_file_args,
-                                  munged_cli_args                     )
+      def parse_cli( configuration )
+        cli_parser.parse
+      end
 
-        if merged_args[:print_help] or ( arguments.empty? && parsed_file_args.empty? )
-          puts cli_args_parser
-          exit # We should have a real way to say we want to terminate the program....
+      def parse_options_file( configuration )
+        locations = Array( configuration[:options_file] )
+
+        locations.each do |location|
+          parsed_file_args = file_parser.load_file( location )
+
+          break unless parsed_file_args
         end
 
-        merged_args[:is_pe] = decide_if_pe( merged_args )
-
-        validator.validate( merged_args )
-
-        finalized_args = merged_args.finalize!
-
-        files_config = file_parser.load_yaml_file( finalized_config[:config] )
-
-        network_conf = set_hosts_config_defaults( files_config, finalized_config[:is_pe] )
-
-        finalized_args[:network] = network_conf
-
-        return finalized_args
+        parsed_file_args
       end
 
-      def puppet_enterprise_dir
-        @pe_dir ||= ENV['pe_dist_dir'] || '/opt/enterprise/dists'
+      def parse_hosts_config( configuration )
+        host_config = file_parser.load_file( configuration[:config] )
       end
 
-      def puppet_enterprise_version( type = :default )
-        @pe_ver ||= load_pe_version( type )
+      def parse_env( configuration )
+        env_parser.parse
       end
 
-      def load_pe_version( type )
-        default_file = type == :windows ? 'LATEST-win' : 'LATEST'
-        dist_dir = puppet_enterprise_dir
-        version_file = ENV['pe_version_file'] || default_file
-        file_parser.load_flat_file( dist_dir + '/' + version_file )
+      def parse_fog( configuration )
       end
 
-      def merge_args( defaults, args_from_file, args_from_cli )
-        user_supplied_args = args_from_file.merge( args_from_cli )
-        options = defaults.merge( user_supplied_args )
+      def merge( *args )
+        return args.first if args.length == 1
 
-        return options
+        sorted = sort_inputs_by( args, SORT_ORDER )
+
+        return multi_merge( *sorted )
       end
 
-      def pretty_print_args( args )
-        pretty = [ "Options" ] +
-          pretty_print_hash( args, "\t" )
+     private
 
-        return pretty.compact.join( "\n" )
+      def sort_inputs_by( inputs, ordering )
+        return inputs.sort do |input_a, input_b|
+          ordering.index( input_a.type ) <=> ordering.index( input_b.type )
+        end
       end
 
-      def pretty_print_hash( args, offset )
-        args.map do |arg, val|
-          if val and val != []
-            [ "#{offset}#{arg.to_s}:" ] +
-            if val.kind_of?( Array )
-              val.map do |v|
-                [ "#{offset}\t#{v.to_s}" ]
-              end
-            elsif val.kind_of?( Hash )
-              pretty_print_hash( val, offset + offset )
-            else
-              [ "#{offset}\t#{val.to_s}" ]
-            end
-          end
-        end.flatten
+      def multi_merge( *args )
+        return args.inject do |combined, new|
+          combined.merge( new )
+        end
       end
+
     end
   end
 end

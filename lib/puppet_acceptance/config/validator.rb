@@ -6,13 +6,15 @@ module PuppetAcceptance
     class Validator
       def validate( args )
 
-        validate_type( args[:type] )
+        validate_type( args.fetch( :type, nil ) )
 
-        validate_fail_mode( args[:fail_mode] )
+        validate_fail_mode( args.fetch( :fail_mode, nil ) )
 
-        validate_config( args[:config] )
+        validate_config( args.fetch( :config, nil ) )
 
-        validate_options_file( args[:options] )
+        validate_options_file( args.fetch( :options, nil ) )
+
+        args
       end
 
       def validate_type( type )
@@ -38,11 +40,9 @@ module PuppetAcceptance
       end
 
       def validate_options_file( options_file )
-        unless options_file
-          unless File.exists?( File.expand_path( options_file ) )
-            raise ArgumentError.new(
-              "Specified options file '#{options_file}' does not exist!" )
-          end
+        if options_file and not File.exists?( File.expand_path( options_file ) )
+          raise ArgumentError.new(
+            "Specified options file '#{options_file}' does not exist!" )
         end
       end
 

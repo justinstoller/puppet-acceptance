@@ -9,7 +9,7 @@ module PuppetAcceptance
       end
 
       def []( key )
-        retrieve( key )
+        fetch( key, self.class.new )
       end
 
       def to_ary
@@ -17,11 +17,13 @@ module PuppetAcceptance
       end
       alias_method :to_a, :to_ary
 
-      def retrieve( key )
-        if defaults.has_key?( key.to_s )
-          raw_value = defaults.fetch( key.to_s )
+      def fetch( key, default_value, &block )
+        raw_value = defaults[key.to_sym]
+        raw_value ||= defaults[key.to_s]
+        if block_given?
+          raw_value ||= block.call( key )
         else
-          raw_value = defaults.fetch( key.to_sym, self.class.new )
+          raw_value ||= default_value
         end
 
         if raw_value.is_a? Hash
@@ -71,7 +73,7 @@ module PuppetAcceptance
 
         elsif values.empty? and block_given?
           if block.arity == 1
-            block.call( retrieve( key ) )
+            block.call( self[key] )
 
           else
             set( key, block )
